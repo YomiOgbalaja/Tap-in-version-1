@@ -218,12 +218,15 @@ input.search{
 .ninebox-label{font-size:10.5px; font-weight:600; color:var(--ink-700); text-align:center; padding:0 4px;}
 .ninebox-pct{font-size:10px; color:var(--ink-500);}
 
-/* ============ ORG CHART ============ */
+/* ============ ORG CHART — unified, single tree rooted at company level ============ */
 .orgchart-controls{display:flex; align-items:center; gap:10px; margin-bottom:16px; flex-wrap:wrap;}
 .orgchart-legend{display:flex; gap:12px; margin-left:auto; font-size:11px; color:var(--ink-500); flex-wrap:wrap;}
 .orgchart-legend .item{display:flex; align-items:center; gap:5px;}
-.orgchart-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:18px;}
-.orgchart-dept{background:var(--paper-2); border:1px solid var(--line-soft); border-radius:12px; padding:16px 14px 14px; display:flex; flex-direction:column; align-items:center;}
+.orgchart-tree{display:flex; flex-direction:column; align-items:center;}
+.orgchart-root-row{display:flex; justify-content:center;}
+.orgchart-scroll{overflow-x:auto; width:100%; padding:2px 2px 12px;}
+.orgchart-branch{display:flex; gap:16px; border-top:2px solid var(--line); padding-top:14px; width:max-content; min-width:100%; margin:0 auto; justify-content:center;}
+.orgchart-dept{background:var(--paper-2); border:1px solid var(--line-soft); border-radius:12px; padding:14px 14px 14px; display:flex; flex-direction:column; align-items:center; flex:0 0 auto;}
 .orgchart-dept-label{font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-500); margin-bottom:10px;}
 .orgchart-node{background:var(--paper-1); border:1px solid var(--line); border-radius:9px; padding:8px 10px; min-width:108px; text-align:center; cursor:pointer; transition:box-shadow .12s,transform .12s; border-left:3px solid var(--ink-300);}
 .orgchart-node:hover{box-shadow:var(--shadow-1); transform:translateY(-1px);}
@@ -232,9 +235,29 @@ input.search{
 .orgchart-node.tier-good{border-left-color:var(--good);}
 .orgchart-node.tier-warning{border-left-color:var(--warning);}
 .orgchart-node.tier-critical{border-left-color:var(--critical);}
+.orgchart-node.orgchart-root{background:var(--ink-900); border-color:var(--ink-900); border-left:3px solid var(--accent); min-width:170px; cursor:pointer;}
+.orgchart-node.orgchart-root .oc-name{color:var(--paper-0);}
+.orgchart-node.orgchart-root .oc-meta{color:var(--ink-300);}
 .orgchart-stem{width:2px; height:14px; background:var(--line);}
 .orgchart-managers{display:flex; gap:10px; flex-wrap:wrap; justify-content:center; border-top:2px solid var(--line); padding-top:14px; margin-top:0;}
 .orgchart-mgr-wrap{display:flex; flex-direction:column; align-items:center;}
+@media (max-width:640px){
+  .orgchart-node{min-width:92px; padding:7px 8px;}
+  .orgchart-node .oc-name{max-width:100px; font-size:11px;}
+  .orgchart-dept{padding:12px 10px;}
+  .orgchart-branch{gap:12px;}
+}
+
+/* ============ PEER COMPARISON (anonymized) ============ */
+.cmp-row{padding:11px 0; border-bottom:1px solid var(--line-soft);}
+.cmp-row:last-of-type{border-bottom:none;}
+.cmp-row-head{display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px; gap:10px;}
+.cmp-label{font-size:12.5px; font-weight:600; color:var(--ink-900);}
+.cmp-percentile{font-size:11px; font-weight:600; white-space:nowrap;}
+.cmp-track{position:relative; height:8px; border-radius:4px; background:var(--paper-2); border:1px solid var(--line-soft);}
+.cmp-avg-mark{position:absolute; top:-3px; width:2px; height:14px; background:var(--ink-300); transform:translateX(-1px);}
+.cmp-you-mark{position:absolute; top:-4px; width:11px; height:11px; border-radius:50%; background:var(--accent); border:2px solid var(--paper-1); box-shadow:0 0 0 1px var(--accent); transform:translateX(-5.5px);}
+.cmp-readout{display:flex; justify-content:space-between; font-size:11px; color:var(--ink-500); margin-top:6px;}
 
 /* ============ SCENARIO PLANNER ============ */
 .scenario-controls{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:18px;}
@@ -309,6 +332,8 @@ input.search{
 .modal-card{background:var(--paper-1); border-radius:16px; box-shadow:var(--shadow-2); width:100%; max-width:640px; margin-top:0; transform:translateY(-8px); transition:transform .18s; overflow:hidden;}
 #modal-backdrop.open .modal-card{transform:translateY(0);}
 .modal-head{display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:20px 22px 14px; border-bottom:1px solid var(--line-soft);}
+.modal-head-title{display:flex; align-items:flex-start; gap:8px; min-width:0;}
+#modal-back{margin-top:1px; flex:none;}
 .modal-head h3{font-size:19px;}
 .modal-head .sub{font-size:12.5px; color:var(--ink-500); margin-top:3px;}
 .modal-body{padding:18px 22px 22px; max-height:70vh; overflow-y:auto;}
@@ -329,7 +354,10 @@ canvas{max-width:100%;}
 <div id="modal-backdrop">
   <div class="modal-card" id="modal-card">
     <div class="modal-head">
-      <div><h3 id="modal-title"></h3><div class="sub" id="modal-sub"></div></div>
+      <div class="modal-head-title">
+        <button class="icon-btn" id="modal-back" aria-label="Back" hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <div><h3 id="modal-title"></h3><div class="sub" id="modal-sub"></div></div>
+      </div>
       <button class="icon-btn" id="modal-close" aria-label="Close">✕</button>
     </div>
     <div class="modal-body" id="modal-body"></div>
@@ -866,13 +894,33 @@ function caseLink(id,label){ return `<span class="drill-link" data-case="${id}">
 /* ================================================================
    DRILL-DOWN DETAIL MODAL
    ================================================================ */
-function openModal(title,sub,bodyHtml){
+let modalStack=[];
+let modalCurrent=null;
+function openModal(title,sub,bodyHtml,nav){
+  if(nav){
+    if(modalCurrent) modalStack.push(modalCurrent);
+    modalCurrent=nav;
+  }
   document.getElementById('modal-title').textContent=title;
   document.getElementById('modal-sub').textContent=sub||'';
   document.getElementById('modal-body').innerHTML=bodyHtml;
   document.getElementById('modal-backdrop').classList.add('open');
+  document.getElementById('modal-body').scrollTop=0;
+  document.getElementById('modal-back').hidden=modalStack.length===0;
 }
-function closeModal(){ document.getElementById('modal-backdrop').classList.remove('open'); }
+function closeModal(){ document.getElementById('modal-backdrop').classList.remove('open'); modalStack=[]; modalCurrent=null; }
+function backModal(){
+  if(!modalStack.length) return;
+  const prev=modalStack.pop();
+  modalCurrent=null;
+  openByNav(prev);
+}
+function openByNav(nav){
+  if(nav.type==='emp') openEmployeeDetail(nav.id);
+  else if(nav.type==='mgr') openManagerDetail(nav.id);
+  else if(nav.type==='dept') openDeptDetail(nav.id);
+  else if(nav.type==='case') openCaseDetail(nav.id);
+}
 
 function openEmployeeDetail(id){
   const e=empById[id]; if(!e) return;
@@ -908,7 +956,7 @@ function openEmployeeDetail(id){
     ${r.next?`<p class="hint" style="margin-top:10px">Level ${esc(e.level)} → ${esc(r.next.id)} (${esc(r.next.title)}): ${r.status==='Ready now'?'<strong style="color:var(--good)">ready now</strong>':r.status==='Ready 1–2 cycles'?'<strong style="color:var(--warning)">ready in 1–2 cycles</strong>':'<strong>developing</strong>'} — competency gap ${r.compGap}, LMS gap ${r.lmsGap} pts.</p>`:''}
     `;})():''}
     <p class="hint" style="margin-top:12px">Illustrative simulated profile — part of this workspace's demo dataset.</p>`;
-  openModal(e.name, e.title+' · '+dept.name, body);
+  openModal(e.name, e.title+' · '+dept.name, body, {type:'emp',id});
 }
 function openManagerDetail(id){
   const m=empById[id]; if(!m) return;
@@ -934,7 +982,7 @@ function openManagerDetail(id){
     </table></div>
     <div class="card-head" style="margin-top:14px"><h3 style="font-size:13.5px">Team roster</h3></div>
     ${rosterTable(agg.team.slice().sort((a,b)=>b.attritionRisk-a.attritionRisk))}`;
-  openModal(m.name, 'Manager, '+dept.name, body);
+  openModal(m.name, 'Manager, '+dept.name, body, {type:'mgr',id});
 }
 function openDeptDetail(id){
   const d=deptAgg.find(x=>x.id===id); if(!d) return;
@@ -953,7 +1001,7 @@ function openDeptDetail(id){
       <td>${barCell(agg.avgPerf,5,'var(--accent)')}</td><td>${barCell(agg.avgEngagement,100,'var(--accent)')}</td>
       <td>${agg.highRisk?riskPill('High',agg.highRisk):(agg.elevatedRisk?riskPill('Elevated',agg.elevatedRisk):riskPill('Low',null))}</td>
     </tr>`;}).join('')}</tbody></table></div>`;
-  openModal(d.name, `${DEPTS.length} departments company-wide`, body);
+  openModal(d.name, `${DEPTS.length} departments company-wide`, body, {type:'dept',id});
 }
 function openCaseDetail(id){
   const c=ER_CASES.find(x=>x.id===id); if(!c) return;
@@ -981,7 +1029,7 @@ function openCaseDetail(id){
       ${c.sopMilestones.map(s=>`<div class="risk-flag-row"><span class="pill ${s.done?'good':'neutral'}"><span class="pdot"></span>${s.done?'Done':'Pending'}</span> ${esc(s.name)}</div>`).join('')}
     </div>
     <p class="hint" style="margin-top:12px">De-identified by design — no individual names are stored on this case.</p>`;
-  openModal(c.id, esc(c.category), body);
+  openModal(c.id, esc(c.category), body, {type:'case',id});
 }
 
 function handleDrillClick(e){
@@ -1004,6 +1052,7 @@ function wireDrillDownDelegation(){
   // one modal (e.g. "Manager" on an employee's profile) can open the next one.
   document.getElementById('modal-body').addEventListener('click',handleDrillClick);
   document.getElementById('modal-close').addEventListener('click',closeModal);
+  document.getElementById('modal-back').addEventListener('click',backModal);
   document.getElementById('modal-backdrop').addEventListener('click',(e)=>{ if(e.target.id==='modal-backdrop') closeModal(); });
 }
 
@@ -1236,8 +1285,8 @@ SECTION_RENDERERS['manager:overview']=function(){
     ${rosterTable(agg.team.slice().sort((a,b)=>b.attritionRisk-a.attritionRisk).slice(0,6))}
   </div>
   <div class="card">
-    <div class="card-head"><h3>How you compare</h3><span class="hint">Other managers in ${esc(dept.name)}</span></div>
-    ${peerManagerTable(mgr)}
+    <div class="card-head"><h3>How you compare</h3><span class="hint">vs. the group average</span></div>
+    ${peerComparisonPanel(mgr)}
   </div>
   <div class="card">
     <div class="card-head"><h3>Team comp snapshot</h3><span class="hint">Internal pay vs. simulated market rate</span></div>
@@ -1252,20 +1301,45 @@ SECTION_RENDERERS['manager:overview']=function(){
     })()}
   </div>`;
 };
-function peerManagerTable(mgr){
-  const peers=managersFull.filter(m=>m.deptId===mgr.deptId);
-  if(peers.length<2) return `<div class="empty-note">No peer managers in this department yet.</div>`;
-  return `<div class="table-wrap"><table>
-    <thead><tr><th>Manager</th><th>Team</th><th>Avg. performance</th><th>Avg. engagement</th><th>Attrition risk</th></tr></thead>
-    <tbody>${peers.map(m=>{
-      const agg=managerAgg(m); const isYou=m.id===mgr.id;
-      return `<tr data-mgr="${m.id}" style="${isYou?'background:var(--accent-soft)':''}">
-        <td class="name">${mgrLink(m.id,m.name)}${isYou?' <span class="pill neutral">You</span>':''}</td>
-        <td class="tabular">${agg.headcount}</td>
-        <td>${barCell(agg.avgPerf,5,agg.avgPerf<companyAvgPerf?'var(--serious)':'var(--accent)')}</td>
-        <td>${barCell(agg.avgEngagement,100,agg.avgEngagement<companyAvgEngagement?'var(--serious)':'var(--accent)')}</td>
-        <td>${agg.highRisk?riskPill('High',agg.highRisk):(agg.elevatedRisk?riskPill('Elevated',agg.elevatedRisk):riskPill('Low',null))}</td>
-      </tr>`;}).join('')}</tbody></table></div>`;
+function percentileRank(values, mine, higherIsBetter){
+  const below=values.filter(v=>higherIsBetter?v<mine:v>mine).length;
+  const equal=values.filter(v=>v===mine).length;
+  return Math.round((below+equal*0.5)/values.length*100);
+}
+function ordinal(n){ const s=['th','st','nd','rd'], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
+function cmpRow(label, mine, avg, max, higherIsBetter, peerValues){
+  const pct=v=>clamp(v/max*100,0,100);
+  const pr=percentileRank(peerValues, mine, higherIsBetter);
+  const tied=mine===avg;
+  const good=higherIsBetter?mine>avg:mine<avg;
+  const qualifier=tied?'at group average':(good?'better than group average':'below group average');
+  return `<div class="cmp-row">
+    <div class="cmp-row-head"><span class="cmp-label">${esc(label)}</span><span class="cmp-percentile" style="color:${tied?'var(--ink-500)':(good?'var(--good)':'var(--ink-500)')}">${ordinal(pr)} percentile · ${qualifier}</span></div>
+    <div class="cmp-track">
+      <div class="cmp-avg-mark" style="left:${pct(avg)}%" title="Group average: ${avg}"></div>
+      <div class="cmp-you-mark" style="left:${pct(mine)}%" title="You: ${mine}"></div>
+    </div>
+    <div class="cmp-readout"><span>You: <strong class="tabular">${mine}</strong></span><span>Group average: <strong class="tabular">${avg}</strong></span></div>
+  </div>`;
+}
+function peerComparisonPanel(mgr){
+  const allPeers=managersFull.filter(m=>m.deptId===mgr.deptId);
+  const others=allPeers.filter(m=>m.id!==mgr.id);
+  if(others.length<2) return `<div class="empty-note">Not enough peer managers in this department yet to compare against.</div>`;
+  const myAgg=managerAgg(mgr);
+  const perfVals=others.map(m=>managerAgg(m).avgPerf), engVals=others.map(m=>managerAgg(m).avgEngagement), riskVals=others.map(m=>m.attritionRate12mo);
+  const avgPerf=round1(avg(perfVals)), avgEng=Math.round(avg(engVals)), avgRisk=round1(avg(riskVals));
+  const allPerf=[...perfVals,myAgg.avgPerf], allEng=[...engVals,myAgg.avgEngagement], allRisk=[...riskVals,mgr.attritionRate12mo];
+  const deptSeries=deptEngagementSeries[mgr.deptId]||[];
+  const months=rangeMonths().slice(-6);
+  const deptTrend=deptSeries.slice(-6);
+  return `
+  <p class="hint" style="margin:-4px 0 12px">Anonymized — showing you against the group average for ${esc(DEPTS.find(d=>d.id===mgr.deptId).name)} managers. Peer identities and individual teams are never shown here.</p>
+  ${cmpRow('Avg. performance', myAgg.avgPerf, avgPerf, 5, true, allPerf)}
+  ${cmpRow('Avg. engagement', myAgg.avgEngagement, avgEng, 100, true, allEng)}
+  ${cmpRow('Attrition rate (12mo)', mgr.attritionRate12mo, avgRisk, 10, false, allRisk)}
+  <div class="card-head" style="margin-top:16px"><h3 style="font-size:13px">Your team vs. the department's running average</h3><span class="hint">Engagement, last 6 pulses</span></div>
+  <div class="chart-box" style="height:180px"><canvas id="c-mgr-peer-trend"></canvas></div>`;
 }
 
 /* ---------- MANAGER: Roster ---------- */
@@ -1622,17 +1696,18 @@ SECTION_RENDERERS['people:overview']=function(){
 
 /* ---------- PEOPLE TEAM: Interactive Org Chart ---------- */
 const ORGCHART_METRICS={
-  risk:{label:'Attrition risk', tier:m=>{const r=managerAgg(m).highRisk; return r?'critical':(managerAgg(m).elevatedRisk?'warning':'good');}, badge:m=>{const a=managerAgg(m); return a.highRisk?`${a.highRisk} high risk`:(a.elevatedRisk?`${a.elevatedRisk} elevated`:'Low risk');}},
-  perf:{label:'Performance', tier:m=>{const p=managerAgg(m).avgPerf; return p>=3.8?'good':(p>=3.3?'warning':'critical');}, badge:m=>`Perf ${managerAgg(m).avgPerf}`},
-  engagement:{label:'Engagement', tier:m=>{const e=managerAgg(m).avgEngagement; return e>=72?'good':(e>=60?'warning':'critical');}, badge:m=>`Eng ${managerAgg(m).avgEngagement}`},
-  span:{label:'Span of control', tier:m=>m.spanOfControl>ORG_THRESHOLDS.span?'critical':(m.spanOfControl>=ORG_THRESHOLDS.span*0.75?'warning':'good'), badge:m=>`${m.spanOfControl} reports`},
+  risk:{label:'Attrition risk', tier:m=>{const r=managerAgg(m).highRisk; return r?'critical':(managerAgg(m).elevatedRisk?'warning':'good');}, badge:m=>{const a=managerAgg(m); return a.highRisk?`${a.highRisk} high risk`:(a.elevatedRisk?`${a.elevatedRisk} elevated`:'Low risk');}, companyBadge:()=>`${companyHighRisk} high-risk company-wide`, deptBadge:d=>{const a=deptAgg.find(x=>x.id===d.id); return a.highRisk?`${a.highRisk} high risk`:(a.elevatedRisk?`${a.elevatedRisk} elevated`:'Low risk');}},
+  perf:{label:'Performance', tier:m=>{const p=managerAgg(m).avgPerf; return p>=3.8?'good':(p>=3.3?'warning':'critical');}, badge:m=>`Perf ${managerAgg(m).avgPerf}`, companyBadge:()=>`Company avg ${companyAvgPerf} / 5.0`, deptBadge:d=>`Avg ${deptAgg.find(x=>x.id===d.id).avgPerf} / 5.0`},
+  engagement:{label:'Engagement', tier:m=>{const e=managerAgg(m).avgEngagement; return e>=72?'good':(e>=60?'warning':'critical');}, badge:m=>`Eng ${managerAgg(m).avgEngagement}`, companyBadge:()=>`Company avg ${companyAvgEngagement} / 100`, deptBadge:d=>`Avg ${deptAgg.find(x=>x.id===d.id).avgEngagement} / 100`},
+  span:{label:'Span of control', tier:m=>m.spanOfControl>ORG_THRESHOLDS.span?'critical':(m.spanOfControl>=ORG_THRESHOLDS.span*0.75?'warning':'good'), badge:m=>`${m.spanOfControl} reports`, companyBadge:()=>`Median span ${companyMedianSpan}`, deptBadge:d=>{const mgrs=managersFull.filter(m=>m.deptId===d.id); return `Avg span ${mgrs.length?round1(avg(mgrs.map(m=>m.spanOfControl))):0}`;}},
 };
 SECTION_RENDERERS['people:orgchart']=function(){
   const metricKey=state.orgchartMetric||'risk';
+  const metric=ORGCHART_METRICS[metricKey];
   return `
   <div class="section-title-wrap" style="margin-bottom:2px">
     <h2 class="section-title">Org chart</h2>
-    <p class="section-desc">A live, visual map of the org — color-coded by whichever signal you're watching. Click any card to open that person's profile.</p>
+    <p class="section-desc">One tree, rooted at the company — every department reports up to the same root, so you can see how they compare at a glance. Click any card to open that person's profile.</p>
   </div>
   <div class="card">
     <div class="orgchart-controls">
@@ -1643,20 +1718,30 @@ SECTION_RENDERERS['people:orgchart']=function(){
         <div class="item"><span class="swatch" style="background:var(--critical)"></span>Needs attention</div>
       </div>
     </div>
-    <div class="orgchart-grid">
-      ${DEPTS.map(d=>{
-        const director=empById[d.directorId];
-        const mgrs=managersFull.filter(m=>m.deptId===d.id);
-        const metric=ORGCHART_METRICS[metricKey];
-        return `<div class="orgchart-dept">
-          <div class="orgchart-dept-label">${esc(d.name)}</div>
-          <div class="orgchart-node" data-emp="${director.id}"><div class="oc-name">${esc(director.name)}</div><div class="oc-meta">Director · ${deptAllStaff(d.id).length} people</div></div>
-          <div class="orgchart-stem"></div>
-          <div class="orgchart-managers">
-            ${mgrs.map(m=>`<div class="orgchart-mgr-wrap"><div class="orgchart-node tier-${metric.tier(m)}" data-mgr="${m.id}"><div class="oc-name">${esc(m.name)}</div><div class="oc-meta">${esc(metric.badge(m))}</div></div></div>`).join('')}
-          </div>
-        </div>`;
-      }).join('')}
+    <div class="orgchart-tree">
+      <div class="orgchart-root-row">
+        <div class="orgchart-node orgchart-root" data-nav="overview">
+          <div class="oc-name">Company-wide</div>
+          <div class="oc-meta">${TOTAL_HC} people · ${metric.companyBadge()}</div>
+        </div>
+      </div>
+      <div class="orgchart-stem"></div>
+      <div class="orgchart-scroll">
+        <div class="orgchart-branch">
+          ${DEPTS.map(d=>{
+            const director=empById[d.directorId];
+            const mgrs=managersFull.filter(m=>m.deptId===d.id);
+            return `<div class="orgchart-dept">
+              <div class="orgchart-dept-label">${esc(d.name)} · ${metric.deptBadge(d)}</div>
+              <div class="orgchart-node" data-emp="${director.id}"><div class="oc-name">${esc(director.name)}</div><div class="oc-meta">Director · ${deptAllStaff(d.id).length} people</div></div>
+              <div class="orgchart-stem"></div>
+              <div class="orgchart-managers">
+                ${mgrs.map(m=>`<div class="orgchart-mgr-wrap"><div class="orgchart-node tier-${metric.tier(m)}" data-mgr="${m.id}"><div class="oc-name">${esc(m.name)}</div><div class="oc-meta">${esc(metric.badge(m))}</div></div></div>`).join('')}
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
     </div>
   </div>`;
 };
@@ -2406,6 +2491,14 @@ function wireSectionInteractions(){
     ]);
     const agg=managerAgg(mgr);
     doughnutChart('c-mgr-risk',['High','Elevated','Low'],[agg.highRisk,agg.elevatedRisk,agg.headcount-agg.highRisk-agg.elevatedRisk],[cssv('--critical'),cssv('--warning'),cssv('--good')]);
+    const peerTrendCanvas=document.getElementById('c-mgr-peer-trend');
+    if(peerTrendCanvas){
+      const deptSeries=(deptEngagementSeries[mgr.deptId]||[]).slice(-6);
+      lineChart('c-mgr-peer-trend', ['P1','P2','P3','P4','P5','P6'], [
+        {label:'You', data:mgr.engagementSpark, color:cssv('--accent')},
+        {label:'Department running average', data:deptSeries, color:cssv('--ink-300'), dashed:true, fill:false, points:false},
+      ], {max:100});
+    }
   }
   if(key==='manager:roster'){
     document.getElementById('roster-search').addEventListener('input',e=>{
