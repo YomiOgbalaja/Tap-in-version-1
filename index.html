@@ -1,0 +1,2139 @@
+<title>Tap In</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.2.1/jspdf.umd.min.js"></script>
+<style>
+/* ============ TOKENS — LinkedIn-inspired professional palette ============ */
+:root{
+  color-scheme: light;
+  --ink-900:#1b1f23; --ink-700:#434f59; --ink-500:#5e6d77; --ink-300:#a6b3bb; --ink-150:#dce4e9;
+  --paper-0:#f4f2ee; --paper-1:#ffffff; --paper-2:#f8f7f4; --line:#dfe3e6; --line-soft:#ebedee;
+  --accent:#0a66c2; --accent-ink:#004182; --accent-soft:#e7f3ff; --accent-strong:#004182;
+  --amplify:#9a6400; --amplify-soft:#f7e6cc;
+  --good:#057642; --warning:#915907; --serious:#a6501f; --critical:#b0210f;
+  --good-soft:#e0f5e9; --warning-soft:#fbeece; --serious-soft:#fbe4da; --critical-soft:#fadedb;
+  --cat-1:#2a78d6; --cat-2:#c95a22; --cat-3:#1baf7a; --cat-4:#b5820a; --cat-5:#c15c86; --cat-6:#177a17; --cat-7:#4a3aa7; --cat-8:#c94141;
+  --shadow-1: 0 1px 2px rgba(16,23,26,.08), 0 1px 1px rgba(16,23,26,.05);
+  --shadow-2: 0 8px 24px rgba(16,23,26,.14), 0 2px 6px rgba(16,23,26,.07);
+  --font-display:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --font-body:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --font-mono:'IBM Plex Mono','SFMono-Regular',Menlo,Consolas,monospace;
+}
+/* Dark-mode auto-switching intentionally removed — this workspace always renders the light, white/blue palette per explicit request. */
+*{box-sizing:border-box;}
+body{
+  margin:0; background:var(--paper-0); color:var(--ink-900); font-family:var(--font-body);
+  font-size:14px; line-height:1.45; -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4{font-family:var(--font-display); font-weight:700; margin:0; text-wrap:balance; letter-spacing:-.015em;}
+button{font-family:inherit;}
+::selection{background:var(--accent-soft);}
+a{color:var(--accent-strong);}
+.mono{font-family:var(--font-mono);}
+.tabular{font-variant-numeric:tabular-nums;}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:4px;}
+@media (prefers-reduced-motion: reduce){*{animation-duration:.01ms !important; transition-duration:.01ms !important;}}
+
+/* ============ SHELL ============ */
+#shell{display:grid; grid-template-columns:220px 1fr; min-height:100vh;}
+#rail{
+  background:var(--paper-1); border-right:1px solid var(--line); padding:20px 14px;
+  display:flex; flex-direction:column; gap:22px; position:sticky; top:0; height:100vh; overflow-y:auto;
+}
+.brand{display:flex; align-items:center; gap:9px; padding:0 6px;}
+.brand-mark{width:28px; height:28px; flex:none;}
+.brand-word{font-family:var(--font-display); font-weight:800; font-size:19px; letter-spacing:-.02em; color:var(--ink-900);}
+.brand-tag{font-size:10.5px; color:var(--ink-500); padding:0 6px; line-height:1.3; margin-top:-4px;}
+
+.persona-switch{display:flex; flex-direction:column; gap:5px;}
+.rail-label{font-size:10.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-500); padding:0 6px; font-weight:600;}
+.persona-btn{
+  display:flex; align-items:center; gap:9px; padding:8px 9px; border-radius:9px; border:1px solid transparent;
+  background:none; color:var(--ink-700); text-align:left; cursor:pointer; font-size:13px; font-weight:500;
+}
+.persona-btn:hover{background:var(--paper-2);}
+.persona-btn.active{background:var(--accent-soft); color:var(--accent-ink); border-color:var(--accent-soft);}
+.persona-btn .dot{width:7px;height:7px;border-radius:50%;background:var(--ink-300); flex:none;}
+.persona-btn.active .dot{background:var(--accent);}
+
+.persona-context{padding:8px 9px; background:var(--paper-2); border:1px solid var(--line-soft); border-radius:9px; font-size:12px; color:var(--ink-700);}
+.persona-context select{width:100%; margin-top:5px; font:inherit; font-size:12.5px; padding:6px 7px; border-radius:7px; border:1px solid var(--line); background:var(--paper-1); color:var(--ink-900);}
+
+nav.section-nav{display:flex; flex-direction:column; gap:2px;}
+.nav-item{
+  display:flex; align-items:center; gap:9px; padding:8px 9px; border-radius:8px; border:none;
+  background:none; color:var(--ink-700); text-align:left; cursor:pointer; font-size:13px; width:100%;
+}
+.nav-item:hover{background:var(--paper-2); color:var(--ink-900);}
+.nav-item.active{background:var(--ink-900); color:var(--paper-0); font-weight:600;}
+.nav-item svg{flex:none;}
+
+.rail-foot{margin-top:auto; padding:10px 9px; border-top:1px solid var(--line-soft); font-size:11px; color:var(--ink-500);}
+
+#main-col{display:flex; flex-direction:column; min-width:0;}
+#topbar{
+  position:sticky; top:0; z-index:5; background:color-mix(in srgb, var(--paper-0) 88%, transparent);
+  backdrop-filter:blur(8px); border-bottom:1px solid var(--line); padding:14px 26px;
+  display:flex; align-items:center; justify-content:space-between; gap:16px;
+}
+#topbar h1{font-size:21px;}
+#topbar .sub{font-size:12.5px; color:var(--ink-500); margin-top:2px;}
+.topbar-actions{display:flex; align-items:center; gap:10px;}
+.range-select{font:inherit; font-size:12.5px; padding:7px 10px; border-radius:8px; border:1px solid var(--line); background:var(--paper-1); color:var(--ink-700);}
+.btn{
+  font:inherit; font-size:12.5px; font-weight:600; padding:8px 13px; border-radius:8px; border:1px solid var(--line);
+  background:var(--paper-1); color:var(--ink-900); cursor:pointer; display:inline-flex; align-items:center; gap:6px;
+}
+.btn:hover{border-color:var(--ink-300);}
+.btn.primary{background:var(--ink-900); color:var(--paper-0); border-color:var(--ink-900);}
+.btn.primary:hover{background:var(--accent-strong); border-color:var(--accent-strong);}
+.btn.ask{background:var(--accent); color:#fff; border-color:var(--accent);}
+.btn.ask:hover{background:var(--accent-strong); border-color:var(--accent-strong);}
+
+#main{padding:22px 26px 60px; display:flex; flex-direction:column; gap:22px; max-width:1360px; width:100%;}
+
+/* ============ KPI TILES ============ */
+.kpi-row{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px;}
+.kpi{background:var(--paper-1); border:1px solid var(--line); border-radius:12px; padding:14px 16px; box-shadow:var(--shadow-1);}
+.kpi .label{font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-500); font-weight:600;}
+.kpi .value{font-family:var(--font-display); font-size:30px; font-weight:600; margin-top:5px; display:flex; align-items:baseline; gap:6px;}
+.kpi .value .unit{font-size:15px; color:var(--ink-500); font-weight:500;}
+.kpi .delta{font-size:12px; margin-top:4px; font-weight:600; display:inline-flex; align-items:center; gap:4px;}
+.delta.up-good{color:var(--good);} .delta.up-bad{color:var(--critical);} .delta.down-good{color:var(--good);} .delta.down-bad{color:var(--critical);} .delta.flat{color:var(--ink-500);}
+
+/* ============ CARDS / GRID ============ */
+.grid2{display:grid; grid-template-columns:1.3fr 1fr; gap:16px;}
+.grid3{display:grid; grid-template-columns:repeat(3,1fr); gap:14px;}
+@media (max-width:980px){.grid2,.grid3{grid-template-columns:1fr;}}
+.card{background:var(--paper-1); border:1px solid var(--line); border-radius:14px; padding:18px; box-shadow:var(--shadow-1);}
+.card-head{display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:12px;}
+.card-head h3{font-size:15.5px; font-weight:600; font-family:var(--font-body);}
+.card-head .hint{font-size:11.5px; color:var(--ink-500);}
+.section-title{font-size:24px; margin-bottom:2px;}
+.section-desc{font-size:13px; color:var(--ink-500); max-width:62ch;}
+
+/* legend */
+.legend{display:flex; flex-wrap:wrap; gap:10px 16px; font-size:12px; color:var(--ink-700); margin-top:10px;}
+.legend .item{display:flex; align-items:center; gap:6px;}
+.legend .swatch{width:9px;height:9px;border-radius:2px;}
+
+/* ============ TABLES ============ */
+.table-wrap{overflow-x:auto; border:1px solid var(--line-soft); border-radius:10px;}
+table{border-collapse:collapse; width:100%; font-size:12.8px; min-width:640px;}
+th{
+  text-align:left; padding:9px 12px; background:var(--paper-2); color:var(--ink-500); font-weight:600;
+  font-size:11px; text-transform:uppercase; letter-spacing:.05em; border-bottom:1px solid var(--line); white-space:nowrap;
+  position:sticky; top:0;
+}
+td{padding:9px 12px; border-bottom:1px solid var(--line-soft); color:var(--ink-700); vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tbody tr:hover{background:var(--paper-2);}
+td.name{color:var(--ink-900); font-weight:600;}
+.subtle{color:var(--ink-500); font-size:11.5px;}
+
+.pill{display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:100px; font-size:11.3px; font-weight:600; white-space:nowrap;}
+.pill.good{background:var(--good-soft); color:var(--good);}
+.pill.warning{background:var(--warning-soft); color:var(--warning);}
+.pill.serious{background:var(--serious-soft); color:var(--serious);}
+.pill.critical{background:var(--critical-soft); color:var(--critical);}
+.pill.neutral{background:var(--paper-2); color:var(--ink-500); border:1px solid var(--line-soft);}
+.pill .pdot{width:6px;height:6px;border-radius:50%;background:currentColor;}
+
+.bar-cell{display:flex; align-items:center; gap:8px;}
+.bar-track{flex:1; height:6px; border-radius:4px; background:var(--paper-2); overflow:hidden; min-width:50px;}
+.bar-fill{height:100%; border-radius:4px; background:var(--accent);}
+
+input.search{
+  font:inherit; font-size:12.5px; padding:7px 11px; border-radius:8px; border:1px solid var(--line);
+  background:var(--paper-1); color:var(--ink-900); width:220px;
+}
+
+/* ============ AMPLIFIER / COACHING CARDS ============ */
+.amp-card{border:1px solid var(--line); border-radius:12px; padding:13px 14px; background:var(--paper-2); display:flex; gap:12px;}
+.amp-card + .amp-card{margin-top:9px;}
+.amp-icon{width:30px; height:30px; border-radius:9px; background:var(--amplify-soft); color:var(--amplify); display:flex; align-items:center; justify-content:center; flex:none;}
+.amp-body{flex:1; min-width:0;}
+.amp-title{font-weight:600; font-size:13.3px; color:var(--ink-900);}
+.amp-desc{font-size:12.5px; color:var(--ink-700); margin-top:2px;}
+.amp-meta{display:flex; gap:8px; margin-top:8px; align-items:center; flex-wrap:wrap;}
+.amp-badge{font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:5px; background:var(--amplify-soft); color:var(--amplify);}
+.amp-done-btn{margin-left:auto; font-size:11.5px; font-weight:600; padding:5px 10px; border-radius:7px; border:1px solid var(--line); background:var(--paper-1); color:var(--ink-700); cursor:pointer;}
+.amp-done-btn:hover{border-color:var(--good); color:var(--good);}
+.amp-card.done{opacity:.45;}
+.amp-card.done .amp-title{text-decoration:line-through;}
+
+.report-box{white-space:pre-wrap; font-family:var(--font-mono); font-size:11.8px; line-height:1.65; background:var(--paper-2); border:1px solid var(--line-soft); border-radius:10px; padding:16px; max-height:480px; overflow:auto;}
+
+/* ============ AGENT ============ */
+.agent-intro{background:linear-gradient(180deg,var(--accent-soft),var(--paper-1) 65%);}
+.priority-list{margin:0; padding-left:19px; display:flex; flex-direction:column; gap:10px; font-size:13px; color:var(--ink-900);}
+.priority-list li::marker{font-weight:700; color:var(--accent-ink);}
+.draft-msg{border:1px solid var(--line); border-radius:10px; padding:12px 14px; background:var(--paper-2);}
+.draft-msg + .draft-msg{margin-top:10px;}
+.draft-msg-head{display:flex; align-items:center; justify-content:space-between; font-size:11.5px; font-weight:600; color:var(--ink-500); text-transform:uppercase; letter-spacing:.04em; margin-bottom:7px;}
+.draft-subject{font-weight:600; font-size:13px; color:var(--ink-900); margin-bottom:5px;}
+.draft-body{white-space:pre-wrap; font-family:var(--font-body); font-size:12.8px; line-height:1.55; color:var(--ink-700); margin:0;}
+
+/* ============ 9-BOX GRID ============ */
+.ninebox-grid{display:grid; grid-template-columns:20px repeat(3,1fr); grid-template-rows:repeat(3,90px) 20px; gap:6px; max-width:640px;}
+.ninebox-axis-y{grid-row:1/4; writing-mode:vertical-rl; transform:rotate(180deg); text-align:center; font-size:11px; color:var(--ink-500); font-weight:600;}
+.ninebox-axis-x{grid-column:2/5; text-align:center; font-size:11px; color:var(--ink-500); font-weight:600;}
+.ninebox-cell{border-radius:10px; border:1px solid var(--line-soft); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; background:var(--paper-2);}
+.ninebox-cell.tier-good{background:var(--good-soft); border-color:var(--good);}
+.ninebox-cell.tier-critical{background:var(--critical-soft); border-color:var(--critical);}
+.ninebox-n{font-family:var(--font-display); font-size:22px; font-weight:800; color:var(--ink-900);}
+.ninebox-label{font-size:10.5px; font-weight:600; color:var(--ink-700); text-align:center; padding:0 4px;}
+.ninebox-pct{font-size:10px; color:var(--ink-500);}
+
+/* ============ INTEGRATIONS ============ */
+.integration-card{display:flex; gap:13px; align-items:flex-start; border:1px solid var(--line); border-radius:12px; padding:15px; background:var(--paper-1);}
+.integration-logo{width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex:none; font-family:var(--font-display); font-weight:700; font-size:15px; color:#fff;}
+.integration-body{flex:1; min-width:0;}
+.integration-name{font-weight:600; font-size:14px; color:var(--ink-900); display:flex; align-items:center; gap:8px;}
+.integration-meta{font-size:11.8px; color:var(--ink-500); margin-top:3px;}
+.integration-fields{display:flex; flex-wrap:wrap; gap:5px; margin-top:9px;}
+.field-chip{font-size:10.8px; padding:2px 7px; border-radius:5px; background:var(--paper-2); border:1px solid var(--line-soft); color:var(--ink-700); font-family:var(--font-mono);}
+
+/* ============ ASSISTANT DRAWER ============ */
+#assist-toggle{
+  position:fixed; right:26px; bottom:26px; z-index:30; width:56px; height:56px; border-radius:50%;
+  background:var(--accent); color:#fff; border:none; box-shadow:var(--shadow-2); cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+}
+#assist-toggle .ring{position:absolute; inset:-6px; border:2px solid var(--accent); border-radius:50%; opacity:.5; animation:pulse-ring 2.4s ease-out infinite;}
+@keyframes pulse-ring{0%{transform:scale(.85); opacity:.55;} 100%{transform:scale(1.35); opacity:0;}}
+@media (prefers-reduced-motion: reduce){#assist-toggle .ring{animation:none; display:none;}}
+
+#assist-drawer{
+  position:fixed; top:0; right:0; height:100vh; width:400px; max-width:92vw; background:var(--paper-1);
+  border-left:1px solid var(--line); box-shadow:var(--shadow-2); z-index:40; display:flex; flex-direction:column;
+  transform:translateX(100%); transition:transform .28s ease;
+}
+#assist-drawer.open{transform:translateX(0);}
+.assist-head{padding:16px 18px; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between;}
+.assist-head h3{font-size:16px;}
+.assist-head .sub{font-size:11.5px; color:var(--ink-500); margin-top:2px;}
+.icon-btn{background:none; border:none; color:var(--ink-500); cursor:pointer; padding:6px; border-radius:7px;}
+.icon-btn:hover{background:var(--paper-2); color:var(--ink-900);}
+.assist-msgs{flex:1; overflow-y:auto; padding:16px 18px; display:flex; flex-direction:column; gap:12px;}
+.msg{max-width:88%; font-size:13px; line-height:1.55; padding:9px 12px; border-radius:12px;}
+.msg.user{align-self:flex-end; background:var(--ink-900); color:var(--paper-0); border-bottom-right-radius:4px;}
+.msg.bot{align-self:flex-start; background:var(--paper-2); color:var(--ink-900); border:1px solid var(--line-soft); border-bottom-left-radius:4px; white-space:pre-wrap;}
+.msg.bot.thinking{color:var(--ink-500); font-style:italic;}
+.msg.sys{align-self:center; font-size:11.5px; color:var(--ink-500); background:none;}
+.assist-suggest{display:flex; flex-wrap:wrap; gap:6px; padding:0 18px 12px;}
+.chip-btn{font-size:11.5px; padding:6px 10px; border-radius:100px; border:1px solid var(--line); background:var(--paper-2); color:var(--ink-700); cursor:pointer;}
+.chip-btn:hover{border-color:var(--accent); color:var(--accent-ink);}
+.assist-input{display:flex; gap:8px; padding:14px 16px; border-top:1px solid var(--line);}
+.assist-input input{flex:1; font:inherit; font-size:13px; padding:9px 12px; border-radius:9px; border:1px solid var(--line); background:var(--paper-0); color:var(--ink-900);}
+.assist-input button{width:38px; height:38px; border-radius:9px; border:none; background:var(--accent); color:#fff; cursor:pointer; flex:none; display:flex; align-items:center; justify-content:center;}
+.assist-input button:disabled{opacity:.5; cursor:default;}
+#assist-backdrop{position:fixed; inset:0; background:rgba(10,14,15,.28); z-index:35; opacity:0; pointer-events:none; transition:opacity .2s;}
+#assist-backdrop.open{opacity:1; pointer-events:auto;}
+
+.empty-note{font-size:12.5px; color:var(--ink-500); padding:20px; text-align:center;}
+canvas{max-width:100%;}
+.chart-box{position:relative;}
+.risk-flag-row{display:flex; align-items:center; gap:6px;}
+</style>
+
+<div id="app"></div>
+<div id="assist-backdrop"></div>
+<button id="assist-toggle" aria-label="Open Tap In Assistant" title="Ask Tap In">
+  <span class="ring"></span>
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 2C7 2 3 5.6 3 10c0 2.4 1.2 4.6 3.2 6.1-.1 1.2-.5 2.3-1.2 3.3-.2.3 0 .6.3.6 1.7-.2 3.2-.9 4.4-1.9.7.1 1.5.2 2.3.2 5 0 9-3.6 9-8s-4-8.3-9-8.3Z" fill="white"/><circle cx="8.4" cy="10" r="1.15" fill="#0a66c2"/><circle cx="12" cy="10" r="1.15" fill="#0a66c2"/><circle cx="15.6" cy="10" r="1.15" fill="#0a66c2"/></svg>
+</button>
+<div id="assist-drawer">
+  <div class="assist-head">
+    <div>
+      <h3>Tap In Assistant</h3>
+      <div class="sub" id="assist-scope-label">Scoped to your current view</div>
+    </div>
+    <button class="icon-btn" id="assist-close" aria-label="Close">✕</button>
+  </div>
+  <div class="assist-msgs" id="assist-msgs"></div>
+  <div class="assist-suggest" id="assist-suggest"></div>
+  <form class="assist-input" id="assist-form">
+    <input type="text" id="assist-text" placeholder="Ask about your people data…" autocomplete="off">
+    <button type="submit" aria-label="Send">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 11l18-8-8 18-2-8-8-2Z" fill="white"/></svg>
+    </button>
+  </form>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ================================================================
+   1. SEEDED RNG + MOCK DATA GENERATION (simulated Workday-style HRIS export)
+   ================================================================ */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const rand = mulberry32(88771234);
+function ri(a,b){return Math.floor(rand()*(b-a+1))+a;}
+function rf(a,b){return rand()*(b-a)+a;}
+function pick(arr){return arr[Math.floor(rand()*arr.length)];}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+function round1(v){return Math.round(v*10)/10;}
+
+const FIRST=["Amara","Liam","Noor","Ethan","Priya","Marcus","Sofia","Devon","Renee","Kwame","Elena","Jacob","Mei","Oscar","Fatima","Caleb","Ines","Tariq","Naomi","Felix","Ava","Hassan","Bianca","Theo","Layla","Simon","Chidi","Grace","Rafael","Yuki","Nadia","Owen","Zara","Milo","Ingrid","Andre","Priscilla","Malik","Clara","Deshawn","Aisha","Rowan","Camille","Julian","Whitney","Sana","Toby","Leilani","Gabriel","Nina","Otis","Farah","Beckett","Rina","Cyrus","Mabel","Kai","Odalys","Trent","Amina"];
+const LAST=["Okafor","Reyes","Chen","Bennett","Alvarez","Webb","Nandakumar","Clarke","Ferreira","Osei","Kowalski","Marsh","Delgado","Nakamura","Haddad","Fontaine","Barrett","Diallo","Whitfield","Sokolova","Mercer","Abara","Lindqvist","Duarte","Kimura","Solis","Odom","Prescott","Farrow","Uchida","Novak","Mbeki","Castellano","Reyneke","Aoki","Vance","Achebe","Halvorsen","Petit","Sarpong"];
+function fullName(used){let n;do{n=pick(FIRST)+" "+pick(LAST);}while(used.has(n));used.add(n);return n;}
+const usedNames=new Set();
+
+const LOCATIONS=["Austin, TX","Denver, CO","New York, NY","Remote — US","Los Angeles, CA","Charlotte, NC"];
+const DEPTS=[
+  {id:'eng',name:'Engineering',target:112},
+  {id:'content',name:'Content Production',target:68},
+  {id:'cx',name:'Customer Experience',target:64},
+  {id:'sales',name:'Ad Sales',target:54},
+  {id:'product',name:'Product',target:40},
+  {id:'marketing',name:'Marketing',target:34},
+  {id:'data',name:'Data & Analytics',target:29},
+  {id:'ga',name:'G&A (Finance, Legal, People)',target:26},
+];
+const DEPT_COLOR={eng:'--cat-1',content:'--cat-2',cx:'--cat-3',sales:'--cat-4',product:'--cat-5',marketing:'--cat-6',data:'--cat-7',ga:'--cat-8'};
+function cssv(name){return getComputedStyle(document.documentElement).getPropertyValue(name).trim();}
+function deptColor(id){return cssv(DEPT_COLOR[id]);}
+
+const HRBPS=[
+  {id:'hrbp1',name:'Priya Nandakumar',title:'Sr. HR Business Partner',depts:['eng']},
+  {id:'hrbp2',name:'Marcus Webb',title:'HR Business Partner',depts:['content','data']},
+  {id:'hrbp3',name:'Sofia Alvarez',title:'HR Business Partner',depts:['cx']},
+  {id:'hrbp4',name:'Devon Clarke',title:'Sr. HR Business Partner',depts:['sales','marketing']},
+  {id:'hrbp5',name:'Renee Okafor',title:'HR Business Partner',depts:['product','ga']},
+];
+function hrbpForDept(deptId){return HRBPS.find(h=>h.depts.includes(deptId));}
+
+const TITLES_IC={
+  eng:['Software Engineer I','Software Engineer II','Senior Software Engineer','Staff Engineer','QA Engineer','DevOps Engineer'],
+  content:['Production Associate','Producer','Senior Producer','Video Editor','Broadcast Technician','Content Strategist'],
+  cx:['Support Specialist','Sr. Support Specialist','Customer Success Manager','CX Operations Analyst'],
+  sales:['Account Executive','Sr. Account Executive','Ad Sales Coordinator','Partnerships Manager'],
+  product:['Product Manager','Sr. Product Manager','Product Analyst','UX Designer'],
+  marketing:['Marketing Specialist','Growth Marketing Manager','Brand Designer','Lifecycle Marketing Manager'],
+  data:['Data Analyst','Sr. Data Analyst','Analytics Engineer','BI Developer'],
+  ga:['Financial Analyst','Staff Accountant','People Ops Coordinator','Legal Counsel','Recruiter'],
+};
+
+let empSeq=1000;
+const managers=[]; // {id,name,title,deptId,hrbpId,level:'M1'|'M2',reports:[empId]}
+const employees=[]; // active roster
+
+function makeEmployee(deptId, managerId, opts){
+  opts=opts||{};
+  const id='E'+(empSeq++);
+  const tenureMonths=opts.tenureMonths!=null?opts.tenureMonths:ri(2,74);
+  const hire=new Date(); hire.setMonth(hire.getMonth()-tenureMonths);
+  // performance calibration: skewed distribution
+  const roll=rand();
+  let band, num;
+  if(roll<0.06){band='Far Exceeds'; num=rf(4.6,5.0);}
+  else if(roll<0.27){band='Exceeds'; num=rf(4.0,4.55);}
+  else if(roll<0.80){band='Meets'; num=rf(3.15,3.95);}
+  else if(roll<0.94){band='Below'; num=rf(2.3,3.1);}
+  else {band='Significantly Below'; num=rf(1.3,2.25);}
+  num=round1(num);
+  const perfTrendDelta=round1(rf(-0.5,0.5));
+  const level=opts.level||pick(['IC1','IC2','IC2','IC3','IC3','IC3','IC4','IC5']);
+  const title=opts.title||pick(TITLES_IC[deptId]);
+  // engagement baseline
+  const deptBase={eng:74,content:71,cx:66,sales:70,product:76,marketing:73,data:75,ga:72}[deptId];
+  let engagement=clamp(Math.round(deptBase+rf(-16,14)-(num<2.8?8:0)),22,98);
+  // attrition risk heuristic
+  let risk=0;
+  risk+=(100-engagement)*0.42;
+  risk+=num<3.0?22:(num<3.4?9:0);
+  risk+=tenureMonths>10 && tenureMonths<26 ? 8:0; // mid-tenure flight risk window
+  risk+=perfTrendDelta<-0.2?10:0;
+  risk+=rf(-8,8);
+  risk=clamp(Math.round(risk),3,97);
+  const potential=clamp(Math.round(engagement*0.42 + (num/5*100)*0.33 + rf(-16,16)),4,99);
+  const emp={
+    id, name:fullName(usedNames), title, level, deptId, managerId,
+    hrbpId: hrbpForDept(deptId).id, location:pick(LOCATIONS),
+    hireDate:hire.toISOString().slice(0,10), tenureMonths,
+    perf:num, perfBand:band, perfTrendDelta,
+    engagement, engagementTrendDelta:round1(rf(-9,6)),
+    attritionRisk:risk,
+    riskBand: risk>=65?'High':(risk>=40?'Elevated':'Low'),
+    potential,
+  };
+  employees.push(emp);
+  return emp;
+}
+function perfBand9(perf){ return perf>=4.0?'High':(perf>=3.0?'Medium':'Low'); }
+function potentialBand9(pot){ return pot>=70?'High':(pot>=40?'Medium':'Low'); }
+
+DEPTS.forEach(dept=>{
+  const hrbp=hrbpForDept(dept.id);
+  const directorId='E'+(empSeq++);
+  const director={
+    id:directorId, name:fullName(usedNames), title:'Director, '+dept.name, level:'M2', deptId:dept.id,
+    managerId:null, hrbpId:hrbp.id, location:pick(LOCATIONS), hireDate:'2020-01-01', tenureMonths:ri(30,72),
+    perf:round1(rf(3.6,4.7)), perfBand:'Exceeds', perfTrendDelta:round1(rf(-0.2,0.4)),
+    engagement:ri(70,92), engagementTrendDelta:round1(rf(-4,5)), attritionRisk:ri(5,22), riskBand:'Low',
+    isDirector:true, potential:ri(55,95),
+  };
+  employees.push(director);
+  let remaining=dept.target;
+  const mgrList=[];
+  while(remaining>0){
+    const teamSize=Math.min(remaining, ri(6,11));
+    const mgrId='E'+(empSeq++);
+    const mgrTenure=ri(8,60);
+    const mgrHire=new Date(); mgrHire.setMonth(mgrHire.getMonth()-mgrTenure);
+    const mgrPerf=round1(rf(3.2,4.6));
+    const mgr={
+      id:mgrId, name:fullName(usedNames), title:'Manager, '+dept.name, level:'M1', deptId:dept.id,
+      managerId:directorId, hrbpId:hrbp.id, location:pick(LOCATIONS), hireDate:mgrHire.toISOString().slice(0,10),
+      tenureMonths:mgrTenure, perf:mgrPerf, perfBand: mgrPerf>4?'Exceeds':'Meets', perfTrendDelta:round1(rf(-0.3,0.3)),
+      engagement:ri(58,90), engagementTrendDelta:round1(rf(-6,5)), attritionRisk:ri(6,45), riskBand:'Low',
+      isManager:true, teamSize, potential:ri(30,95),
+    };
+    // risk band recompute
+    mgr.riskBand=mgr.attritionRisk>=65?'High':(mgr.attritionRisk>=40?'Elevated':'Low');
+    employees.push(mgr);
+    managers.push(mgr);
+    mgrList.push(mgr);
+    for(let i=0;i<teamSize;i++) makeEmployee(dept.id, mgrId);
+    remaining-=teamSize;
+  }
+  dept.directorId=directorId;
+  dept.managerIds=mgrList.map(m=>m.id);
+});
+
+const empById={}; employees.forEach(e=>empById[e.id]=e);
+const managersFull=employees.filter(e=>e.isManager);
+const TOTAL_HC=employees.length;
+
+/* ---- company & dept monthly time series (engagement, attrition rate) ---- */
+const MONTHS=(()=>{const arr=[];const d=new Date();d.setDate(1);for(let i=11;i>=0;i--){const m=new Date(d);m.setMonth(m.getMonth()-i);arr.push(m.toLocaleString('en-US',{month:'short'}));}return arr;})();
+function buildSeries(base, volatility, dipAt, dipMag){
+  const s=[]; let v=base;
+  for(let i=0;i<12;i++){
+    v+=rf(-volatility,volatility*0.8);
+    let val=v;
+    if(dipAt!=null){ const dist=Math.abs(i-dipAt); val -= dipMag*Math.max(0,1-dist/2.2); }
+    s.push(clamp(round1(val),0,100));
+  }
+  return s;
+}
+const REORG_MONTH=7;
+const companyEngagementSeries=buildSeries(74,1.6,REORG_MONTH,9);
+const companyAttritionSeries=(()=>{const s=[];let v=1.05;for(let i=0;i<12;i++){v+=rf(-0.12,0.12); let val=v+(i>=REORG_MONTH&&i<=REORG_MONTH+2?0.55:0); s.push(clamp(round1(val),0.3,3.2));}return s;})();
+const deptEngagementSeries={}; const deptAttritionSeries={};
+DEPTS.forEach(d=>{
+  const base={eng:74,content:71,cx:66,sales:70,product:76,marketing:73,data:75,ga:72}[d.id];
+  deptEngagementSeries[d.id]=buildSeries(base,2.2, d.id==='cx'?REORG_MONTH:null, d.id==='cx'?14:6);
+  deptAttritionSeries[d.id]=(()=>{const s=[];let v=rf(0.7,1.3);for(let i=0;i<12;i++){v+=rf(-0.18,0.18); s.push(clamp(round1(v),0.2,4.2));}return s;})();
+});
+managersFull.forEach(m=>{
+  const rel=m.attritionRisk/100;
+  const s=[]; let v=0.6+rel*2.2;
+  for(let i=0;i<6;i++){ v+=rf(-0.3,0.3); s.push(clamp(round1(v),0.1,6));}
+  m.attritionSpark=s;
+  m.attritionRate12mo=round1(s[s.length-1]*1.05);
+  const eng=[]; let ev=m.engagement;
+  for(let i=0;i<6;i++){ ev+=rf(-3,2.4); eng.push(clamp(Math.round(ev),15,99));}
+  m.engagementSpark=eng;
+});
+
+/* ---- org-diagnostic proxies: span of control, workload pressure, decision latency ---- */
+const companySpans=managersFull.map(m=>m.teamSize);
+const companyMedianSpan=companySpans.slice().sort((a,b)=>a-b)[Math.floor(companySpans.length/2)];
+managersFull.forEach(m=>{
+  m.spanOfControl=m.teamSize;
+  m.workloadPressureProxy=clamp(Math.round((m.teamSize/companyMedianSpan)*46 + (100-m.engagement)*0.32 + rf(-6,6)),4,99);
+  m.decisionLatencyProxy=clamp(Math.round(m.teamSize*2.1 + (24-Math.min(m.tenureMonths,24))*1.15 + rf(-8,8)),4,99);
+});
+const companyManagementDensity=round1(managersFull.length/TOTAL_HC*100);
+
+/* ================================================================
+   1B. EXIT INTERVIEWS (simulated, de-identified) & ER CASE TRACKER
+   ================================================================ */
+const EXIT_REASONS=[
+  {cat:'Compensation', quotes:['Received an offer that was meaningfully higher for similar scope.','Felt base pay had fallen behind market for this role.']},
+  {cat:'Career growth', quotes:['Didn’t see a clear next step here in the next year or two.','Wanted broader scope than this seat could offer right now.']},
+  {cat:'Manager relationship', quotes:['Communication with my manager felt inconsistent.','Wanted more regular coaching and feedback than I was getting.']},
+  {cat:'Work-life balance', quotes:['Workload had been unsustainable for a few quarters.','Needed a schedule that fit a change in personal circumstances.']},
+  {cat:'Relocation', quotes:['Moving for a partner’s job.','Relocating closer to family.']},
+  {cat:'Better opportunity', quotes:['The new role was a step up in scope and title.','It was a hard offer to turn down.']},
+  {cat:'Team culture', quotes:['Team dynamics had gotten harder over the last year.','Didn’t feel like I fully belonged on this team.']},
+  {cat:'Health / personal', quotes:['Stepping back for personal health reasons.','Family circumstances required a change.']},
+];
+const EXIT_RECORDS=(()=>{
+  const n=64, out=[];
+  for(let i=0;i<n;i++){
+    const dept=pick(DEPTS);
+    const mgrPool=managersFull.filter(m=>m.deptId===dept.id);
+    const mgr=mgrPool.length?pick(mgrPool):pick(managersFull);
+    const reason=pick(EXIT_REASONS);
+    const monthsAgo=ri(0,11);
+    const d=new Date(); d.setMonth(d.getMonth()-monthsAgo);
+    const sentiment=clamp(Math.round(rf(28,92)),5,99);
+    out.push({
+      id:'X'+(i+1), deptId:dept.id, managerId:mgr.id, title:pick(TITLES_IC[dept.id]),
+      exitDate:d.toISOString().slice(0,10), monthsAgo, tenureMonths:ri(4,58),
+      reason:reason.cat, quote:pick(reason.quotes),
+      sentiment, wouldRecommend: sentiment>=65?'Yes':(sentiment>=42?'Maybe':'No'),
+    });
+  }
+  return out;
+})();
+
+const ER_CATEGORIES=[
+  {cat:'Policy violation', slaDays:10},
+  {cat:'Interpersonal conflict', slaDays:15},
+  {cat:'Harassment complaint', slaDays:5},
+  {cat:'Performance dispute', slaDays:20},
+  {cat:'Discrimination concern', slaDays:5},
+  {cat:'Retaliation concern', slaDays:5},
+  {cat:'Wage / hour question', slaDays:10},
+];
+const ER_THEMES=['Workload','Communication','Scheduling','Compensation perception','Role clarity','Team dynamics'];
+const SOP_STEPS=['Intake acknowledged','Investigation started','Interviews completed','Resolution documented','Case closed'];
+const ER_CASES=(()=>{
+  const n=22, out=[]; const today=new Date();
+  for(let i=0;i<n;i++){
+    const c=pick(ER_CATEGORIES);
+    const openedDaysAgo=ri(1,55);
+    const opened=new Date(today); opened.setDate(opened.getDate()-openedDaysAgo);
+    const due=new Date(opened); due.setDate(due.getDate()+c.slaDays);
+    const daysRemaining=Math.round((due-today)/86400000);
+    const closedRoll=rand();
+    const stage= closedRoll<0.4?'Closed' : (daysRemaining<0?'Investigation': pick(['Intake','Investigation','Resolution']));
+    let status;
+    if(stage==='Closed') status='Closed';
+    else if(daysRemaining<0) status='Breached';
+    else if(daysRemaining<=3) status='At risk';
+    else status='On track';
+    const stepIdx=SOP_STEPS.indexOf('Intake acknowledged')+(stage==='Closed'?5:(stage==='Resolution'?3:(stage==='Investigation'?2:1)));
+    out.push({
+      id:'ER-'+(2000+i), category:c.cat, deptId:(()=>{const d=pick(DEPTS);return d.id;})(), theme:pick(ER_THEMES),
+      openedDate:opened.toISOString().slice(0,10), dueDate:due.toISOString().slice(0,10),
+      daysRemaining, stage, status, ownerId:pick(HRBPS).id,
+      sopMilestones:SOP_STEPS.map((s,idx)=>({name:s, done:idx<Math.min(stepIdx,5)})),
+    });
+  }
+  return out;
+})();
+
+/* ================================================================
+   2. AGGREGATIONS
+   ================================================================ */
+function avg(arr){return arr.length? arr.reduce((a,b)=>a+b,0)/arr.length : 0;}
+function deptEmployees(id){return employees.filter(e=>e.deptId===id && !e.isDirector && !e.isManager);}
+function deptAllStaff(id){return employees.filter(e=>e.deptId===id);}
+const deptAgg=DEPTS.map(d=>{
+  const staff=deptAllStaff(d.id);
+  return {
+    ...d, color:deptColor(d.id), headcount:staff.length,
+    avgPerf:round1(avg(staff.map(e=>e.perf))),
+    avgEngagement:Math.round(avg(staff.map(e=>e.engagement))),
+    highRisk:staff.filter(e=>e.riskBand==='High').length,
+    elevatedRisk:staff.filter(e=>e.riskBand==='Elevated').length,
+    attritionRate: deptAttritionSeries[d.id][11]*4, // annualized-ish estimate from latest monthly
+  };
+});
+const companyAvgPerf=round1(avg(employees.map(e=>e.perf)));
+const companyAvgEngagement=Math.round(avg(employees.map(e=>e.engagement)));
+const companyHighRisk=employees.filter(e=>e.riskBand==='High').length;
+const companyElevated=employees.filter(e=>e.riskBand==='Elevated').length;
+const companyAttritionRate=round1(companyAttritionSeries[11]*4);
+const companyAttritionRatePrev=round1(companyAttritionSeries[8]*4);
+const perfBandCounts=['Far Exceeds','Exceeds','Meets','Below','Significantly Below'].map(b=>({band:b,count:employees.filter(e=>e.perfBand===b).length}));
+
+/* ---- competency & bench-strength mapping (Workforce Planner: HR + C-suite) ---- */
+const COMPETENCIES=['Technical depth','Leadership & coaching','Domain expertise','Cross-functional collaboration','Data fluency'];
+const COMPETENCY_BIAS={
+  eng:[1.1,0.75,0.9,0.8,1.0], content:[0.7,0.85,1.1,0.95,0.7], cx:[0.7,0.9,0.95,1.05,0.75],
+  sales:[0.65,0.85,1.05,1.1,0.8], product:[0.9,0.9,1.0,1.05,0.95], marketing:[0.7,0.8,0.95,1.0,0.9],
+  data:[1.05,0.75,0.9,0.85,1.15], ga:[0.75,0.85,1.0,0.9,0.8],
+};
+const competencyMatrix=DEPTS.map(d=>({
+  deptId:d.id, name:d.name,
+  scores:COMPETENCIES.map((c,i)=>clamp(round1(2.6*COMPETENCY_BIAS[d.id][i]+rf(-0.4,0.4)),1,5)),
+}));
+function benchStrengthByDept(){
+  return DEPTS.map(d=>{
+    const mgrs=managersFull.filter(m=>m.deptId===d.id);
+    const covered=mgrs.filter(m=>successionCandidates(m).some(c=>c.readiness!=='Development needed')).length;
+    return {deptId:d.id, name:d.name, roles:mgrs.length, covered, pct: mgrs.length?round1(covered/mgrs.length*100):100};
+  });
+}
+
+function managerAgg(mgr){
+  const team=employees.filter(e=>e.managerId===mgr.id);
+  return {
+    mgr, team, headcount:team.length,
+    avgPerf:round1(avg(team.map(e=>e.perf))||mgr.perf),
+    avgEngagement:Math.round(avg(team.map(e=>e.engagement))||mgr.engagement),
+    highRisk:team.filter(e=>e.riskBand==='High').length,
+    elevatedRisk:team.filter(e=>e.riskBand==='Elevated').length,
+  };
+}
+
+/* coaching suggestions engine (HRBP view) */
+function coachingSuggestions(scopeDeptIds){
+  const mgrs=managersFull.filter(m=>scopeDeptIds.includes(m.deptId));
+  const out=[];
+  mgrs.forEach(m=>{
+    const agg=managerAgg(m);
+    const engDelta=m.engagementSpark[m.engagementSpark.length-1]-m.engagementSpark[0];
+    if(agg.highRisk>=2){
+      out.push({mgr:m,priority:'High',type:'Retention focus',
+        text:`${agg.highRisk} direct reports are flagged high attrition risk (avg engagement ${agg.avgEngagement}). Recommend stay interviews within 2 weeks and a workload/comp review for the team.`});
+    }
+    if(engDelta<=-10){
+      out.push({mgr:m,priority:'High',type:'Engagement dip',
+        text:`Team engagement dropped ${Math.abs(Math.round(engDelta))} pts over the last 6 pulses. Suggest a listening session and reviewing recent workload or org changes with ${m.name.split(' ')[0]}.`});
+    }
+    if(m.tenureMonths<7 && agg.headcount>=6){
+      out.push({mgr:m,priority:'Medium',type:'New-manager support',
+        text:`${m.name} became a people manager ${m.tenureMonths} months ago with a ${agg.headcount}-person team. Recommend enrolling in the new-manager coaching cohort and pairing with a peer mentor.`});
+    }
+    if(agg.avgPerf<3.1){
+      out.push({mgr:m,priority:'Medium',type:'Calibration coaching',
+        text:`Team average performance (${agg.avgPerf}) trails the company benchmark (${companyAvgPerf}). Review calibration notes with ${m.name.split(' ')[0]} ahead of the next cycle.`});
+    }
+  });
+  const order={High:0,Medium:1,Low:2};
+  return out.sort((a,b)=>order[a.priority]-order[b.priority]);
+}
+
+/* workflow amplifier suggestions (manager view, "you" scoped) */
+function amplifierTasks(mgr){
+  const agg=managerAgg(mgr);
+  const tasks=[];
+  agg.team.filter(e=>e.riskBand!=='Low').sort((a,b)=>b.attritionRisk-a.attritionRisk).slice(0,4).forEach(e=>{
+    tasks.push({icon:'⚡',title:`Schedule a check-in with ${e.name}`,
+      desc:`${e.riskBand} attrition risk (score ${e.attritionRisk}) · engagement ${e.engagement} · ${e.title}`,
+      badge:e.riskBand==='High'?'High priority':'Elevated'});
+  });
+  if(agg.avgEngagement < companyAvgEngagement-6){
+    tasks.push({icon:'📣',title:'Run a team pulse follow-up',desc:`Team engagement (${agg.avgEngagement}) is below the company average (${companyAvgEngagement}). A short listening session can surface the driver before the next survey.`,badge:'Suggested'});
+  }
+  const lowRecent=agg.team.filter(e=>e.perfTrendDelta<-0.25);
+  if(lowRecent.length){
+    tasks.push({icon:'📈',title:'Review recent performance trend',desc:`${lowRecent.length} team member${lowRecent.length>1?'s':''} trending down since last cycle: ${lowRecent.slice(0,3).map(e=>e.name).join(', ')}.`,badge:'Suggested'});
+  }
+  tasks.push({icon:'🗓️',title:'Prep for HRBP sync',desc:`Your HRBP ${HRBPS.find(h=>h.id===mgr.hrbpId).name} will review your team's benchmark this week — export a report to bring talking points.`,badge:'Reminder'});
+  return tasks;
+}
+
+/* ================================================================
+   3. STATE
+   ================================================================ */
+const state={
+  role:'manager', // manager | hrbp | people
+  asManagerId: managersFull.filter(m=>m.deptId==='cx')[0].id,
+  asHrbpId:'hrbp3',
+  section:'overview',
+  range:12,
+  taskDone:{},
+  agentRuns:{},
+  agentBusy:false,
+  agentTaskDone:{},
+  orgDiagRuns:{},
+  orgDiagBusy:false,
+};
+function rangeSlice(arr){return arr.slice(arr.length-Math.min(state.range,arr.length));}
+function rangeMonths(){return rangeSlice(MONTHS);}
+
+const SECTIONS={
+  manager:[['overview','Overview'],['roster','Team Roster'],['pulse','Pulse Trends'],['amplifier','Amplifier']],
+  hrbp:[['overview','Overview'],['benchmark','Benchmarking'],['attrition','Attrition Watch'],['coaching','Coaching Queue'],['ertracker','ER Tracker'],['orgdiag','Org Diagnostics'],['agent','Automation Agent'],['reports','Exec Reports']],
+  people:[['overview','Company Overview'],['performance','Performance & Ranking'],['workforce','Workforce Planner'],['talent','Talent Planning'],['succession','Succession Planning'],['attrition','Attrition Trends'],['exit','Exit Interviews'],['ertracker','ER Tracker'],['orgdiag','Org Diagnostics'],['integrations','HRIS Integrations'],['architecture','Data Architecture'],['reports','Exec Reports']],
+};
+const ROLE_META={
+  manager:{label:'Manager / Partner', icon:'👤'},
+  hrbp:{label:'HR Business Partner', icon:'🤝'},
+  people:{label:'People Team', icon:'🏢'},
+};
+
+/* ================================================================
+   4. SMALL UI HELPERS
+   ================================================================ */
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function riskPill(band, score){
+  const cls=band==='High'?'critical':(band==='Elevated'?'warning':'good');
+  return `<span class="pill ${cls}"><span class="pdot"></span>${band}${score!=null?` · ${score}`:''}</span>`;
+}
+function perfPill(band){
+  const map={'Far Exceeds':'good','Exceeds':'good','Meets':'neutral','Below':'warning','Significantly Below':'critical'};
+  return `<span class="pill ${map[band]}">${band}</span>`;
+}
+function deltaEl(delta,{goodIsUp=true,suffix='',label='vs prior',flatLabel='flat'}={}){
+  delta=round1(delta);
+  if(Math.abs(delta)<0.05) return `<span class="delta flat">— ${flatLabel}</span>`;
+  const up=delta>0;
+  const good=goodIsUp?up:!up;
+  const arrow=up?'▲':'▼';
+  return `<span class="delta ${good?'up-good':'up-bad'}">${arrow} ${Math.abs(delta)}${suffix} ${label}</span>`;
+}
+function barCell(value,max,color){
+  const pct=clamp(value/max*100,0,100);
+  return `<div class="bar-cell"><div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div><span class="tabular" style="min-width:30px">${value}</span></div>`;
+}
+
+/* Chart.js instance registry — destroyed on every re-render */
+let chartRegistry=[];
+function mkChart(canvasId, config){
+  const el=document.getElementById(canvasId);
+  if(!el) return;
+  const ch=new Chart(el.getContext('2d'), config);
+  chartRegistry.push(ch);
+  return ch;
+}
+function destroyCharts(){ chartRegistry.forEach(c=>c.destroy()); chartRegistry=[]; }
+function chartTextColor(){return cssv('--ink-500');}
+function chartGridColor(){return cssv('--line-soft');}
+Chart.defaults.font.family="'Inter',sans-serif";
+
+function lineChart(id,labels,datasets,opts={}){
+  mkChart(id,{type:'line',data:{labels,datasets:datasets.map(ds=>({
+      label:ds.label, data:ds.data, borderColor:ds.color, backgroundColor:ds.fill!==false?ds.color+'26':'transparent',
+      borderWidth:2, pointRadius:ds.points===false?0:3, pointBackgroundColor:ds.color, pointBorderColor:ds.color,
+      tension:.35, fill:ds.fill!==false, borderDash:ds.dashed?[5,4]:undefined,
+    }))},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display: datasets.length>1, labels:{color:chartTextColor(), boxWidth:9, boxHeight:9, usePointStyle:true, font:{size:11}}},
+        tooltip:{backgroundColor:cssv('--paper-1'),titleColor:cssv('--ink-900'),bodyColor:cssv('--ink-700'),borderColor:cssv('--line'),borderWidth:1,padding:10,boxPadding:4,usePointStyle:true}},
+      scales:{
+        x:{ticks:{color:chartTextColor(),font:{size:11}}, grid:{color:'transparent'}},
+        y:{ticks:{color:chartTextColor(),font:{size:11}}, grid:{color:chartGridColor()}, beginAtZero:opts.beginAtZero!==false, suggestedMax:opts.max}
+      }
+    }
+  });
+}
+function barChart(id,labels,data,colors,opts={}){
+  mkChart(id,{type:'bar',data:{labels,datasets:[{data,backgroundColor:colors,borderRadius:4,maxBarThickness:opts.thick||34}]},
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:opts.horizontal?'y':'x',
+      plugins:{legend:{display:false},tooltip:{backgroundColor:cssv('--paper-1'),titleColor:cssv('--ink-900'),bodyColor:cssv('--ink-700'),borderColor:cssv('--line'),borderWidth:1,padding:10}},
+      scales:{
+        x:{ticks:{color:chartTextColor(),font:{size:11}},grid:{color:opts.horizontal?chartGridColor():'transparent'},beginAtZero:true,suggestedMax:opts.max},
+        y:{ticks:{color:chartTextColor(),font:{size:11}},grid:{color:opts.horizontal?'transparent':chartGridColor()},beginAtZero:true,suggestedMax:opts.max}
+      }}});
+}
+function doughnutChart(id,labels,data,colors){
+  mkChart(id,{type:'doughnut',data:{labels,datasets:[{data,backgroundColor:colors,borderWidth:2,borderColor:cssv('--paper-1')}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',
+      plugins:{legend:{display:false},tooltip:{backgroundColor:cssv('--paper-1'),titleColor:cssv('--ink-900'),bodyColor:cssv('--ink-700'),borderColor:cssv('--line'),borderWidth:1,padding:10}}}});
+}
+function sparkline(id,data,color){
+  mkChart(id,{type:'line',data:{labels:data.map((_,i)=>i),datasets:[{data,borderColor:color,borderWidth:1.6,pointRadius:0,tension:.4,fill:false}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{enabled:false}},
+      scales:{x:{display:false},y:{display:false}}}});
+}
+
+/* ================================================================
+   5. RENDER: SHELL
+   ================================================================ */
+function railIcon(name){
+  const icons={
+    overview:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="5" rx="1.5"/><rect x="13" y="11" width="8" height="10" rx="1.5"/><rect x="3" y="14" width="8" height="7" rx="1.5"/></svg>',
+    roster:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="7" r="3.2"/><path d="M2.5 20c0-4 3-6.5 6.5-6.5s6.5 2.5 6.5 6.5"/><circle cx="18" cy="8" r="2.4"/><path d="M15 20c.3-2.6 2-4.4 4.3-4.4"/></svg>',
+    pulse:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h4l2 7 4-14 3 9 2-4h5"/></svg>',
+    amplifier:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/></svg>',
+    benchmark:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>',
+    attrition:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l6-6 4 4 8-9"/><path d="M15 6h6v6"/></svg>',
+    coaching:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M4.9 4.9l2.8 2.8M2 12h4M4.9 19.1l2.8-2.8M12 18v4M16.3 16.3l2.8 2.8M18 12h4M16.3 7.7l2.8-2.8"/><circle cx="12" cy="12" r="3.2"/></svg>',
+    reports:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5M9 13h6M9 17h6M9 9h2"/></svg>',
+    performance:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>',
+    integrations:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><path d="M10 6.5h4M6.5 10v4M17.5 10v4M10 17.5h4"/></svg>',
+    agent:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="7" width="14" height="12" rx="3"/><path d="M12 7V3M9 3h6"/><circle cx="9.5" cy="13" r="1.1" fill="currentColor" stroke="none"/><circle cx="14.5" cy="13" r="1.1" fill="currentColor" stroke="none"/><path d="M9 16.5h6M2.5 12h2.5M19 12h2.5"/></svg>',
+    architecture:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="4" width="6" height="5" rx="1.2"/><rect x="2.5" y="15" width="6" height="5" rx="1.2"/><rect x="15.5" y="9.5" width="6" height="5" rx="1.2"/><path d="M8.5 6.5h3a2 2 0 0 1 2 2v1M8.5 17.5h3a2 2 0 0 0 2-2v-1"/></svg>',
+    talent:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 14.5 8.5 21 9.3l-5 4.4 1.4 6.6L12 17l-5.4 3.3L8 13.7l-5-4.4 6.5-.8Z"/></svg>',
+    succession:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="7" r="3"/><path d="M2.5 20c0-3.6 2.5-6 5.5-6s5.5 2.4 5.5 6"/><circle cx="18" cy="6" r="2.1" stroke-dasharray="2 2"/><path d="M14.3 15.5c.6-1.8 2-2.9 3.7-2.9 2.2 0 4 1.9 4 5.4" stroke-dasharray="2 2"/></svg>',
+    exit:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>',
+    ertracker:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.6 2.7 17a1.8 1.8 0 0 0 1.6 2.7h15.4a1.8 1.8 0 0 0 1.6-2.7L13.7 3.6a1.8 1.8 0 0 0-3.4 0Z"/></svg>',
+    orgdiag:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="2.2"/><circle cx="5" cy="19" r="2.2"/><circle cx="19" cy="19" r="2.2"/><path d="M12 7.2V12M12 12 6.3 17M12 12l5.7 5"/></svg>',
+    workforce:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="4" width="19" height="14" rx="1.6"/><path d="M2.5 9h19M8 4v14"/></svg>',
+  };
+  return icons[name]||'';
+}
+
+function currentManager(){return empById[state.asManagerId];}
+function currentHrbp(){return HRBPS.find(h=>h.id===state.asHrbpId);}
+
+function renderShell(){
+  const app=document.getElementById('app');
+  app.innerHTML=`
+  <div id="shell">
+    <aside id="rail">
+      <div class="brand">
+        <svg class="brand-mark" viewBox="0 0 28 28" fill="none"><rect x="0" y="0" width="28" height="28" rx="7" fill="var(--accent)"/><path d="M7 15h2.8l1.7 5.6L15 9l2.3 8 1.3-2.8H21" stroke="white" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div><div class="brand-word">Tap in</div></div>
+      </div>
+      <div class="brand-tag">AI-driven &amp; agentic people analytics and workflow amplifier</div>
+
+      <div class="persona-switch">
+        <div class="rail-label">View as</div>
+        ${Object.keys(ROLE_META).map(r=>`
+          <button class="persona-btn ${state.role===r?'active':''}" data-role="${r}">
+            <span class="dot"></span>${ROLE_META[r].icon} ${ROLE_META[r].label}
+          </button>`).join('')}
+      </div>
+
+      <div class="persona-context" id="persona-context"></div>
+
+      <div>
+        <div class="rail-label" style="margin-bottom:6px">Menu</div>
+        <nav class="section-nav" id="section-nav"></nav>
+      </div>
+
+      <div class="rail-foot">Simulated data · demo workspace<br>Not connected to a real HRIS.</div>
+    </aside>
+    <div id="main-col">
+      <div id="topbar"></div>
+      <div id="main"></div>
+    </div>
+  </div>`;
+
+  document.querySelectorAll('.persona-btn').forEach(b=>b.addEventListener('click',()=>{
+    state.role=b.dataset.role; state.section=SECTIONS[state.role][0][0]; renderAll();
+  }));
+}
+
+function renderPersonaContext(){
+  const el=document.getElementById('persona-context');
+  if(state.role==='manager'){
+    const opts=managersFull.map(m=>`<option value="${m.id}" ${m.id===state.asManagerId?'selected':''}>${esc(m.name)} — ${DEPTS.find(d=>d.id===m.deptId).name}</option>`).join('');
+    el.innerHTML=`Acting as manager<select id="sel-manager">${opts}</select>`;
+    document.getElementById('sel-manager').addEventListener('change',e=>{state.asManagerId=e.target.value; renderAll();});
+  } else if(state.role==='hrbp'){
+    const opts=HRBPS.map(h=>`<option value="${h.id}" ${h.id===state.asHrbpId?'selected':''}>${esc(h.name)}</option>`).join('');
+    el.innerHTML=`Acting as HRBP<select id="sel-hrbp">${opts}</select>`;
+    document.getElementById('sel-hrbp').addEventListener('change',e=>{state.asHrbpId=e.target.value; renderAll();});
+  } else {
+    el.innerHTML=`People Team<br><span class="subtle">Company-wide visibility · ${TOTAL_HC.toLocaleString()} employees</span>`;
+  }
+}
+
+function renderNav(){
+  const nav=document.getElementById('section-nav');
+  nav.innerHTML=SECTIONS[state.role].map(([id,label])=>`
+    <button class="nav-item ${state.section===id?'active':''}" data-sec="${id}">${railIcon(id)}${label}</button>
+  `).join('');
+  nav.querySelectorAll('.nav-item').forEach(b=>b.addEventListener('click',()=>{state.section=b.dataset.sec; renderAll();}));
+}
+
+function topbarTitle(){
+  if(state.role==='manager'){const m=currentManager();return [`Team overview — ${m.name}`, `${DEPTS.find(d=>d.id===m.deptId).name} · ${managerAgg(m).headcount} direct reports`];}
+  if(state.role==='hrbp'){const h=currentHrbp();return [`${h.name}'s client groups`, h.depts.map(d=>DEPTS.find(x=>x.id===d).name).join(' · ')];}
+  return ['Company-wide people analytics', `${TOTAL_HC.toLocaleString()} employees across ${DEPTS.length} departments`];
+}
+
+function renderTopbar(){
+  const [title,sub]=topbarTitle();
+  const tb=document.getElementById('topbar');
+  tb.innerHTML=`
+    <div><h1>${esc(title)}</h1><div class="sub">${esc(sub)}</div></div>
+    <div class="topbar-actions">
+      <select class="range-select" id="range-select">
+        <option value="3" ${state.range==3?'selected':''}>Last 3 months</option>
+        <option value="6" ${state.range==6?'selected':''}>Last 6 months</option>
+        <option value="12" ${state.range==12?'selected':''}>Last 12 months</option>
+      </select>
+      <button class="btn ask" id="ask-btn">✨ Ask Tap In</button>
+    </div>`;
+  document.getElementById('range-select').addEventListener('change',e=>{state.range=+e.target.value; renderAll();});
+  document.getElementById('ask-btn').addEventListener('click',openAssistant);
+}
+
+/* ================================================================
+   6. RENDER: SECTIONS
+   ================================================================ */
+function renderAll(){
+  destroyCharts();
+  renderPersonaContext();
+  renderNav();
+  renderTopbar();
+  const main=document.getElementById('main');
+  const key=state.role+':'+state.section;
+  const fn=SECTION_RENDERERS[key]||(()=>`<div class="empty-note">Coming soon.</div>`);
+  main.innerHTML=fn();
+  wireSectionInteractions();
+  updateAssistScopeLabel();
+}
+
+const SECTION_RENDERERS={};
+
+/* ---------- MANAGER: Overview ---------- */
+SECTION_RENDERERS['manager:overview']=function(){
+  const mgr=currentManager(); const agg=managerAgg(mgr);
+  const dept=DEPTS.find(d=>d.id===mgr.deptId);
+  return `
+  <div class="kpi-row">
+    <div class="kpi"><div class="label">Team size</div><div class="value">${agg.headcount}<span class="unit">people</span></div><div class="subtle">${esc(dept.name)}</div></div>
+    <div class="kpi"><div class="label">Avg. performance</div><div class="value">${agg.avgPerf}<span class="unit">/ 5.0</span></div>${deltaEl(mgr.perfTrendDelta,{suffix:' pts'})}</div>
+    <div class="kpi"><div class="label">Avg. engagement</div><div class="value">${agg.avgEngagement}<span class="unit">/ 100</span></div>${deltaEl(mgr.engagementSpark[mgr.engagementSpark.length-1]-mgr.engagementSpark[0],{suffix:' pts'})}</div>
+    <div class="kpi"><div class="label">Attrition risk flags</div><div class="value" style="color:${agg.highRisk?'var(--critical)':'var(--ink-900)'}">${agg.highRisk+agg.elevatedRisk}<span class="unit">of ${agg.headcount}</span></div><div class="subtle">${agg.highRisk} high · ${agg.elevatedRisk} elevated</div></div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-head"><h3>Team sentiment vs. company benchmark</h3><span class="hint">${state.range}-mo pulse trend</span></div>
+      <div class="chart-box" style="height:220px"><canvas id="c-mgr-pulse"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h3>Risk breakdown</h3><span class="hint">${agg.headcount} reports</span></div>
+      <div class="chart-box" style="height:180px"><canvas id="c-mgr-risk"></canvas></div>
+      <div class="legend">
+        <div class="item"><span class="swatch" style="background:var(--critical)"></span>High (${agg.highRisk})</div>
+        <div class="item"><span class="swatch" style="background:var(--warning)"></span>Elevated (${agg.elevatedRisk})</div>
+        <div class="item"><span class="swatch" style="background:var(--good)"></span>Low (${agg.headcount-agg.highRisk-agg.elevatedRisk})</div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Who needs attention first</h3><span class="hint">Sorted by attrition risk</span></div>
+    ${rosterTable(agg.team.slice().sort((a,b)=>b.attritionRisk-a.attritionRisk).slice(0,6))}
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>How you compare</h3><span class="hint">Other managers in ${esc(dept.name)}</span></div>
+    ${peerManagerTable(mgr)}
+  </div>`;
+};
+function peerManagerTable(mgr){
+  const peers=managersFull.filter(m=>m.deptId===mgr.deptId);
+  if(peers.length<2) return `<div class="empty-note">No peer managers in this department yet.</div>`;
+  return `<div class="table-wrap"><table>
+    <thead><tr><th>Manager</th><th>Team</th><th>Avg. performance</th><th>Avg. engagement</th><th>Attrition risk</th></tr></thead>
+    <tbody>${peers.map(m=>{
+      const agg=managerAgg(m); const isYou=m.id===mgr.id;
+      return `<tr style="${isYou?'background:var(--accent-soft)':''}">
+        <td class="name">${esc(m.name)}${isYou?' <span class="pill neutral">You</span>':''}</td>
+        <td class="tabular">${agg.headcount}</td>
+        <td>${barCell(agg.avgPerf,5,agg.avgPerf<companyAvgPerf?'var(--serious)':'var(--accent)')}</td>
+        <td>${barCell(agg.avgEngagement,100,agg.avgEngagement<companyAvgEngagement?'var(--serious)':'var(--accent)')}</td>
+        <td>${agg.highRisk?riskPill('High',agg.highRisk):(agg.elevatedRisk?riskPill('Elevated',agg.elevatedRisk):riskPill('Low',null))}</td>
+      </tr>`;}).join('')}</tbody></table></div>`;
+}
+
+/* ---------- MANAGER: Roster ---------- */
+function rosterTable(list, opts={}){
+  if(!list.length) return `<div class="empty-note">No team members in scope.</div>`;
+  return `<div class="table-wrap"><table>
+    <thead><tr><th>Name</th><th>Title</th><th>Tenure</th><th>Performance</th><th>Engagement</th><th>Attrition risk</th></tr></thead>
+    <tbody>${list.map(e=>`
+      <tr>
+        <td class="name">${esc(e.name)}</td>
+        <td>${esc(e.title)}</td>
+        <td class="tabular">${(e.tenureMonths/12).toFixed(1)} yr</td>
+        <td>${perfPill(e.perfBand)} <span class="subtle tabular">${e.perf}</span></td>
+        <td>${barCell(e.engagement,100,'var(--accent)')}</td>
+        <td>${riskPill(e.riskBand,e.attritionRisk)}</td>
+      </tr>`).join('')}
+    </tbody></table></div>`;
+}
+SECTION_RENDERERS['manager:roster']=function(){
+  const mgr=currentManager(); const agg=managerAgg(mgr);
+  return `
+  <div class="card">
+    <div class="card-head">
+      <h3>Full team roster — ${esc(mgr.name)}</h3>
+      <input class="search" id="roster-search" placeholder="Search name or title…">
+    </div>
+    <div id="roster-table-wrap">${rosterTable(agg.team)}</div>
+  </div>`;
+};
+
+/* ---------- MANAGER: Pulse ---------- */
+SECTION_RENDERERS['manager:pulse']=function(){
+  const mgr=currentManager();
+  return `
+  <div class="card">
+    <div class="card-head"><h3>Engagement pulse — trailing 6 surveys</h3><span class="hint">Your team</span></div>
+    <div class="chart-box" style="height:240px"><canvas id="c-mgr-pulse-full"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Attrition rate trend</h3><span class="hint">Trailing 6 months, annualized est.</span></div>
+    <div class="chart-box" style="height:200px"><canvas id="c-mgr-attr"></canvas></div>
+  </div>`;
+};
+
+/* ---------- MANAGER: Amplifier ---------- */
+SECTION_RENDERERS['manager:amplifier']=function(){
+  const mgr=currentManager();
+  const tasks=amplifierTasks(mgr);
+  return `
+  <div class="card">
+    <div class="card-head"><h3>Workflow amplifier — suggested actions</h3><span class="hint">AI-generated from your team's latest signals</span></div>
+    <div id="amp-list">
+      ${tasks.map((t,i)=>{
+        const done=!!state.taskDone['m'+i];
+        return `<div class="amp-card ${done?'done':''}" data-task="m${i}">
+          <div class="amp-icon">${t.icon}</div>
+          <div class="amp-body">
+            <div class="amp-title">${esc(t.title)}</div>
+            <div class="amp-desc">${esc(t.desc)}</div>
+            <div class="amp-meta"><span class="amp-badge">${esc(t.badge)}</span>
+              <button class="amp-done-btn" data-toggle="m${i}">${done?'Undo':'Mark done'}</button>
+            </div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+};
+
+/* ---------- HRBP: Overview ---------- */
+function hrbpDepts(){return currentHrbp().depts;}
+function hrbpManagers(){return managersFull.filter(m=>hrbpDepts().includes(m.deptId));}
+function hrbpStaff(){return employees.filter(e=>hrbpDepts().includes(e.deptId));}
+SECTION_RENDERERS['hrbp:overview']=function(){
+  const hrbp=currentHrbp(); const staff=hrbpStaff(); const mgrs=hrbpManagers();
+  const avgEng=Math.round(avg(staff.map(e=>e.engagement)));
+  const avgPerf=round1(avg(staff.map(e=>e.perf)));
+  const high=staff.filter(e=>e.riskBand==='High').length, elev=staff.filter(e=>e.riskBand==='Elevated').length;
+  return `
+  <div class="kpi-row">
+    <div class="kpi"><div class="label">Client group size</div><div class="value">${staff.length}<span class="unit">people</span></div><div class="subtle">${mgrs.length} managers across ${hrbpDepts().length} dept${hrbpDepts().length>1?'s':''}</div></div>
+    <div class="kpi"><div class="label">Avg. performance</div><div class="value">${avgPerf}<span class="unit">/ 5.0</span></div>${deltaEl(avgPerf-companyAvgPerf,{label:'vs company',flatLabel:'in line with company'})}</div>
+    <div class="kpi"><div class="label">Avg. engagement</div><div class="value">${avgEng}<span class="unit">/ 100</span></div>${deltaEl(avgEng-companyAvgEngagement,{label:'vs company',flatLabel:'in line with company'})}</div>
+    <div class="kpi"><div class="label">At-risk headcount</div><div class="value" style="color:${high?'var(--critical)':'var(--ink-900)'}">${high+elev}<span class="unit">of ${staff.length}</span></div><div class="subtle">${high} high · ${elev} elevated</div></div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-head"><h3>Client group sentiment trend</h3><span class="hint">vs. company benchmark</span></div>
+      <div class="chart-box" style="height:230px"><canvas id="c-hrbp-pulse"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h3>Managers by attrition risk</h3><span class="hint">Reports flagged high/elevated</span></div>
+      <div class="chart-box" style="height:230px"><canvas id="c-hrbp-mgrrisk"></canvas></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Top coaching priorities</h3><span class="hint">See full queue →</span></div>
+    ${coachingList(coachingSuggestions(hrbpDepts()).slice(0,3))}
+  </div>`;
+};
+
+/* ---------- HRBP: Benchmarking ---------- */
+SECTION_RENDERERS['hrbp:benchmark']=function(){
+  const mgrs=hrbpManagers().map(m=>({m,agg:managerAgg(m)}));
+  return `
+  <div class="card">
+    <div class="card-head"><h3>Manager benchmark — avg. performance vs engagement</h3><span class="hint">Bubble size = team size</span></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Manager</th><th>Dept</th><th>Team</th><th>Avg. performance</th><th>Avg. engagement</th><th>Risk flags</th></tr></thead>
+      <tbody>${mgrs.map(({m,agg})=>`
+        <tr>
+          <td class="name">${esc(m.name)}</td>
+          <td>${esc(DEPTS.find(d=>d.id===m.deptId).name)}</td>
+          <td class="tabular">${agg.headcount}</td>
+          <td>${barCell(agg.avgPerf,5,agg.avgPerf<companyAvgPerf?'var(--serious)':'var(--accent)')}</td>
+          <td>${barCell(agg.avgEngagement,100,agg.avgEngagement<companyAvgEngagement?'var(--serious)':'var(--accent)')}</td>
+          <td>${agg.highRisk?riskPill('High',null):(agg.elevatedRisk?riskPill('Elevated',null):riskPill('Low',null))}</td>
+        </tr>`).join('')}</tbody></table></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Department benchmark</h3><span class="hint">Client groups only</span></div>
+    <div class="chart-box" style="height:220px"><canvas id="c-hrbp-deptbench"></canvas></div>
+  </div>`;
+};
+
+/* ---------- HRBP: Attrition watch ---------- */
+SECTION_RENDERERS['hrbp:attrition']=function(){
+  const mgrs=hrbpManagers();
+  return `
+  <div class="card">
+    <div class="card-head"><h3>Attrition rate by manager</h3><span class="hint">Trailing 6-month sparkline, annualized est.</span></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Manager</th><th>Dept</th><th>Team</th><th>Trend</th><th>Current rate</th><th>vs. company</th></tr></thead>
+      <tbody>${mgrs.map(m=>{
+        const co=companyAttritionRate;
+        const worse=m.attritionRate12mo>co;
+        return `<tr>
+          <td class="name">${esc(m.name)}</td>
+          <td>${esc(DEPTS.find(d=>d.id===m.deptId).name)}</td>
+          <td class="tabular">${managerAgg(m).headcount}</td>
+          <td style="width:110px"><div class="chart-box" style="height:32px"><canvas id="spark-${m.id}"></canvas></div></td>
+          <td class="tabular">${m.attritionRate12mo}%</td>
+          <td>${riskPill(worse?'High':'Low',null)}<span class="subtle"> ${worse?'above':'at/below'} ${co}%</span></td>
+        </tr>`;}).join('')}</tbody></table></div>
+  </div>`;
+};
+
+/* ---------- HRBP: Coaching queue ---------- */
+function coachingList(list){
+  if(!list.length) return `<div class="empty-note">No coaching flags right now — nice work.</div>`;
+  const iconMap={'Retention focus':'🛟','Engagement dip':'📉','New-manager support':'🌱','Calibration coaching':'📐'};
+  return list.map(s=>`
+    <div class="amp-card">
+      <div class="amp-icon">${iconMap[s.type]||'💡'}</div>
+      <div class="amp-body">
+        <div class="amp-title">${esc(s.type)} — ${esc(s.mgr.name)}</div>
+        <div class="amp-desc">${esc(s.text)}</div>
+        <div class="amp-meta"><span class="amp-badge" style="${s.priority==='High'?'background:var(--critical-soft);color:var(--critical)':''}">${s.priority} priority</span></div>
+      </div>
+    </div>`).join('');
+}
+SECTION_RENDERERS['hrbp:coaching']=function(){
+  return `<div class="card"><div class="card-head"><h3>Manager coaching queue</h3><span class="hint">Generated from performance, engagement &amp; attrition signals</span></div>
+    ${coachingList(coachingSuggestions(hrbpDepts()))}
+  </div>`;
+};
+
+/* ---------- HRBP: Automation Agent ---------- */
+SECTION_RENDERERS['hrbp:agent']=function(){
+  const hrbp=currentHrbp();
+  const run=state.agentRuns[hrbp.id];
+  return `
+  <div class="card agent-intro">
+    <div class="card-head">
+      <h3>Tap In Automation Agent</h3>
+      <span class="hint">Autonomous · reads live client-group data</span>
+    </div>
+    <p class="section-desc" style="margin:0 0 14px">
+      Runs across ${esc(hrbp.name)}'s client groups, pulls current performance, engagement and
+      attrition signals through Tap In's own data tools, and drafts a ready-to-act plan — this
+      week's priorities, manager coaching actions, stay-interview candidates, and outreach drafts
+      you can copy straight into email or Slack.
+    </p>
+    <button class="btn ask" id="run-agent-btn" ${state.agentBusy?'disabled':''}>
+      ${state.agentBusy?'⏳ Agent is working…':(run?'⚡ Re-run this week’s agent':'⚡ Run this week’s agent')}
+    </button>
+    ${run&&!state.agentBusy?`<span class="subtle" style="margin-left:10px">Last run ${esc(run.generatedAt)}</span>`:''}
+  </div>
+  <div id="agent-output">${run?renderAgentRun(run):`<div class="empty-note">No agent run yet this session. Click "Run this week's agent" — it will call into the same live data as the dashboards above and come back with a concrete plan.</div>`}</div>`;
+};
+function renderAgentRun(run){
+  const tasks=[
+    ...(run.managerActions||[]).map((a,i)=>({id:'ma'+i, title:`${a.manager||'Manager'}: ${a.action||''}`, meta:a.priority||'Medium priority'})),
+    ...(run.stayInterviews||[]).map((s,i)=>({id:'si'+i, title:`Stay interview — ${s.employee||'Employee'}`, meta:s.reason||''})),
+  ];
+  return `
+  <div class="grid2">
+    <div class="card">
+      <div class="card-head"><h3>This week's priorities</h3></div>
+      <ol class="priority-list">
+        ${(run.priorities||[]).map(p=>`<li><strong>${esc(p.title||'')}</strong><div class="subtle">${esc(p.rationale||'')}</div></li>`).join('')||'<li class="subtle">No priorities returned.</li>'}
+      </ol>
+    </div>
+    <div class="card">
+      <div class="card-head"><h3>Automation queue</h3><span class="hint">Auto-populated by the agent</span></div>
+      <div id="agent-queue">${tasks.length?tasks.map(t=>{
+        const done=!!state.agentTaskDone[t.id];
+        return `<div class="amp-card ${done?'done':''}" data-task="${t.id}">
+          <div class="amp-icon">⚡</div>
+          <div class="amp-body">
+            <div class="amp-title">${esc(t.title)}</div>
+            <div class="amp-desc">${esc(t.meta)}</div>
+            <div class="amp-meta"><button class="amp-done-btn" data-toggle="${t.id}">${done?'Undo':'Mark done'}</button></div>
+          </div>
+        </div>`;
+      }).join(''):'<div class="empty-note">Nothing queued.</div>'}</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Draft outreach</h3><span class="hint">Copy and send from your own email or Slack</span></div>
+    ${(run.draftMessages||[]).map((m,i)=>`
+      <div class="draft-msg">
+        <div class="draft-msg-head"><span>${esc(m.channel||'Email')} → ${esc(m.to||'')}</span><button class="btn" data-copy="${i}">Copy</button></div>
+        ${m.subject?`<div class="draft-subject">${esc(m.subject)}</div>`:''}
+        <pre class="draft-body">${esc(m.body||'')}</pre>
+      </div>`).join('')||'<div class="empty-note">No drafts returned.</div>'}
+  </div>`;
+}
+async function runHrbpAgent(){
+  if(state.agentBusy) return;
+  const hrbp=currentHrbp();
+  state.agentBusy=true; renderAll();
+  try{
+    const sample=await claude.use('sample');
+    if(!sample){
+      state.agentRuns[hrbp.id]={generatedAt:new Date().toLocaleString(), priorities:[{title:'AI assistant isn’t available in this preview context.',rationale:''}], managerActions:[], draftMessages:[], stayInterviews:[]};
+      return;
+    }
+    const sys=`You are the Tap In HRBP Automation Agent, running autonomously for ${hrbp.name}, HR Business Partner for: ${hrbpDepts().map(d=>DEPTS.find(x=>x.id===d).name).join(', ')}. `+
+      `Use the provided tools to pull real figures before writing anything — never invent numbers. All data is simulated demo data, not a real company.\n\n`+
+      `Produce a JSON object with EXACTLY these keys and nothing else:\n`+
+      `{"priorities":[{"title":string,"rationale":string}], // exactly 3, most urgent first\n`+
+      ` "managerActions":[{"manager":string,"action":string,"priority":"High"|"Medium"}], // up to 5 concrete next steps for specific managers\n`+
+      ` "stayInterviews":[{"employee":string,"reason":string}], // up to 4 highest attrition-risk people worth a proactive conversation\n`+
+      ` "draftMessages":[{"channel":"Email"|"Slack","to":string,"subject":string,"body":string}]} // exactly 2 ready-to-send drafts: one coaching nudge to a manager, one stay-interview invite to an employee\n\n`+
+      `Return ONLY the JSON object.`;
+    const result=await sample.json(sys,{tools:AI_TOOLS, modelTier:'default'});
+    state.agentRuns[hrbp.id]={...result, generatedAt:new Date().toLocaleString()};
+  }catch(err){
+    state.agentRuns[hrbp.id]={generatedAt:new Date().toLocaleString(), priorities:[{title:'The agent run failed.',rationale:(err&&err.message)?err.message:'Unknown error.'}], managerActions:[], draftMessages:[], stayInterviews:[]};
+  }finally{
+    state.agentBusy=false; renderAll();
+  }
+}
+
+/* ---------- shared: Exec report ---------- */
+function buildExecReport(scopeLabel, staff, mgrsInScope, extra){
+  const avgEng=Math.round(avg(staff.map(e=>e.engagement)));
+  const avgPerf=round1(avg(staff.map(e=>e.perf)));
+  const high=staff.filter(e=>e.riskBand==='High');
+  const lines=[];
+  lines.push(`TAP IN — EXECUTIVE SUMMARY`);
+  lines.push(`Scope: ${scopeLabel}`);
+  lines.push(`Generated: ${new Date().toISOString().slice(0,10)}  ·  Period: trailing ${state.range} months`);
+  lines.push('='.repeat(60));
+  lines.push('');
+  lines.push(`HEADCOUNT           ${staff.length}`);
+  lines.push(`AVG PERFORMANCE     ${avgPerf} / 5.0  (company: ${companyAvgPerf})`);
+  lines.push(`AVG ENGAGEMENT      ${avgEng} / 100  (company: ${companyAvgEngagement})`);
+  lines.push(`ATTRITION (annualized est.)   ${extra&&extra.attritionRate!=null?extra.attritionRate:companyAttritionRate}%  (prior period: ${companyAttritionRatePrev}%)`);
+  lines.push(`HIGH ATTRITION-RISK HEADCOUNT   ${high.length}`);
+  lines.push('');
+  lines.push(`TOP ATTRITION-RISK HOTSPOTS`);
+  lines.push('-'.repeat(60));
+  high.sort((a,b)=>b.attritionRisk-a.attritionRisk).slice(0,8).forEach(e=>{
+    lines.push(`  ${e.name.padEnd(24)} ${e.title.padEnd(26)} risk ${e.attritionRisk}`);
+  });
+  if(!high.length) lines.push('  None flagged in this scope.');
+  lines.push('');
+  if(mgrsInScope && mgrsInScope.length){
+    lines.push(`MANAGER COACHING RECOMMENDATIONS`);
+    lines.push('-'.repeat(60));
+    const sug=coachingSuggestions(mgrsInScope.map(m=>m.deptId).filter((v,i,a)=>a.indexOf(v)===i)).filter(s=>mgrsInScope.includes(s.mgr));
+    if(sug.length){ sug.slice(0,6).forEach(s=>lines.push(`  [${s.priority}] ${s.mgr.name} — ${s.type}: ${s.text}`)); }
+    else lines.push('  No active coaching flags.');
+    lines.push('');
+  }
+  lines.push(`PERFORMANCE DISTRIBUTION (company-wide)`);
+  lines.push('-'.repeat(60));
+  perfBandCounts.forEach(p=>lines.push(`  ${p.band.padEnd(22)} ${p.count} (${round1(p.count/TOTAL_HC*100)}%)`));
+  lines.push('');
+  lines.push(`Prepared by Tap In — AI-driven and agentic people analytics and workflow amplifier.`);
+  lines.push(`This report uses simulated demo data and is not connected to a live HRIS.`);
+  return lines.join('\n');
+}
+function reportSection(scopeLabel, staff, mgrsInScope, extra){
+  const text=buildExecReport(scopeLabel, staff, mgrsInScope, extra);
+  window.__lastReport=text;
+  window.__lastReportScope=scopeLabel;
+  window.__lastReportRows=staff.filter(e=>!e.isDirector).map(e=>[e.name,e.title,DEPTS.find(d=>d.id===e.deptId).name, empById[e.managerId]?empById[e.managerId].name:'', e.perf, e.perfBand, e.engagement, e.attritionRisk, e.riskBand]);
+  return `
+  <div class="card">
+    <div class="card-head"><h3>Executive report — ${esc(scopeLabel)}</h3>
+      <div style="display:flex;gap:8px">
+        <button class="btn" id="dl-report-csv">⬇ CSV</button>
+        <button class="btn" id="dl-report-pdf">⬇ PDF</button>
+        <button class="btn primary" id="dl-report">⬇ Markdown</button>
+      </div>
+    </div>
+    <div class="report-box">${esc(text)}</div>
+  </div>`;
+}
+SECTION_RENDERERS['hrbp:reports']=function(){
+  return reportSection(currentHrbp().name+"'s client groups", hrbpStaff(), hrbpManagers());
+};
+SECTION_RENDERERS['people:reports']=function(){
+  return reportSection('Company-wide', employees.filter(e=>!e.isDirector&&!e.isManager || true), managersFull, {attritionRate:companyAttritionRate});
+};
+
+/* ---------- PEOPLE TEAM: Overview ---------- */
+SECTION_RENDERERS['people:overview']=function(){
+  return `
+  <div class="kpi-row">
+    <div class="kpi"><div class="label">Total headcount</div><div class="value">${TOTAL_HC}<span class="unit">people</span></div><div class="subtle">${DEPTS.length} departments</div></div>
+    <div class="kpi"><div class="label">Company avg. performance</div><div class="value">${companyAvgPerf}<span class="unit">/ 5.0</span></div></div>
+    <div class="kpi"><div class="label">Company avg. engagement</div><div class="value">${companyAvgEngagement}<span class="unit">/ 100</span></div>${deltaEl(companyEngagementSeries[11]-companyEngagementSeries[0],{suffix:' pts YTD'})}</div>
+    <div class="kpi"><div class="label">Attrition rate (annualized est.)</div><div class="value">${companyAttritionRate}<span class="unit">%</span></div>${deltaEl(companyAttritionRate-companyAttritionRatePrev,{goodIsUp:false,suffix:' pts'})}</div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-head"><h3>Company sentiment trend</h3><span class="hint">${state.range}-month pulse survey average</span></div>
+      <div class="chart-box" style="height:230px"><canvas id="c-people-pulse"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h3>Headcount by department</h3><span class="hint">${TOTAL_HC} total</span></div>
+      <div class="chart-box" style="height:230px"><canvas id="c-people-hc"></canvas></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Department scorecard</h3><span class="hint">Performance, engagement &amp; risk at a glance</span></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Department</th><th>Headcount</th><th>Avg. performance</th><th>Avg. engagement</th><th>High risk</th><th>Attrition (annualized)</th></tr></thead>
+      <tbody>${deptAgg.map(d=>`
+        <tr>
+          <td class="name"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${d.color};margin-right:7px"></span>${esc(d.name)}</td>
+          <td class="tabular">${d.headcount}</td>
+          <td>${barCell(d.avgPerf,5,'var(--accent)')}</td>
+          <td>${barCell(d.avgEngagement,100,'var(--accent)')}</td>
+          <td>${d.highRisk?riskPill('High',d.highRisk):'<span class="pill good"><span class="pdot"></span>None</span>'}</td>
+          <td class="tabular">${round1(d.attritionRate)}%</td>
+        </tr>`).join('')}</tbody></table></div>
+  </div>`;
+};
+
+/* ---------- PEOPLE TEAM: Performance & ranking ---------- */
+function managerScore(m){
+  const agg=managerAgg(m);
+  return clamp(Math.round(0.4*(agg.avgPerf/5*100) + 0.35*agg.avgEngagement + 0.25*(100-clamp(m.attritionRate12mo*8,0,100))),0,100);
+}
+SECTION_RENDERERS['people:performance']=function(){
+  const ranked=employees.filter(e=>!e.isDirector).slice().sort((a,b)=>b.perf-a.perf);
+  const top=ranked.slice(0,8);
+  const bottom=ranked.slice(-8).reverse();
+  const nonMgr=employees.filter(e=>!e.isDirector&&!e.isManager);
+  const grid={};
+  ['High','Medium','Low'].forEach(p=>['High','Medium','Low'].forEach(q=>grid[p+'|'+q]=0));
+  nonMgr.forEach(e=>{ grid[perfBand9(e.perf)+'|'+potentialBand9(e.potential)]++; });
+  const scored=managersFull.map(m=>({m,agg:managerAgg(m),score:managerScore(m)})).sort((a,b)=>b.score-a.score);
+  return `
+  <div class="kpi-row">
+    <div class="kpi"><div class="label">Company avg. performance</div><div class="value">${companyAvgPerf}<span class="unit">/ 5.0</span></div></div>
+    <div class="kpi"><div class="label">Top talent (9-box)</div><div class="value">${grid['High|High']}<span class="unit">of ${nonMgr.length}</span></div><div class="subtle">High performance · high potential</div></div>
+    <div class="kpi"><div class="label">Top manager score</div><div class="value">${scored[0]?scored[0].score:'—'}<span class="unit">/ 100</span></div><div class="subtle">${scored[0]?esc(scored[0].m.name):''}</div></div>
+    <div class="kpi"><div class="label">Managers scored</div><div class="value">${managersFull.length}<span class="unit">this cycle</span></div></div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-head"><h3>Performance distribution</h3><span class="hint">Company-wide calibration</span></div>
+      <div class="chart-box" style="height:220px"><canvas id="c-perf-dist"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h3>Department benchmark</h3><span class="hint">Avg. performance score</span></div>
+      <div class="chart-box" style="height:220px"><canvas id="c-perf-dept"></canvas></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>9-box grid — performance × potential</h3><span class="hint">${nonMgr.length} individual contributors, company-wide</span></div>
+    ${ninebox(grid, nonMgr.length)}
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Manager &amp; team scorecard</h3><span class="hint">Composite of performance, engagement &amp; attrition — ranked</span></div>
+    <div class="table-wrap"><table><thead><tr><th>Rank</th><th>Manager</th><th>Dept</th><th>Team</th><th>Composite score</th><th>Perf</th><th>Engagement</th><th>Attrition (12mo)</th></tr></thead>
+    <tbody>${scored.map((s,i)=>`
+      <tr>
+        <td class="tabular subtle">${i+1}</td>
+        <td class="name">${esc(s.m.name)}</td>
+        <td>${esc(DEPTS.find(d=>d.id===s.m.deptId).name)}</td>
+        <td class="tabular">${s.agg.headcount}</td>
+        <td>${barCell(s.score,100,s.score>=70?'var(--good)':(s.score>=50?'var(--accent)':'var(--serious)'))}</td>
+        <td class="tabular">${s.agg.avgPerf}</td>
+        <td class="tabular">${s.agg.avgEngagement}</td>
+        <td class="tabular">${s.m.attritionRate12mo}%</td>
+      </tr>`).join('')}</tbody></table></div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-head"><h3>Top percentile — company-wide</h3><span class="hint">Top 8 by performance score</span></div>
+      ${rankTable(top,true)}
+    </div>
+    <div class="card">
+      <div class="card-head"><h3>Needs calibration attention</h3><span class="hint">Bottom 8 by performance score</span></div>
+      ${rankTable(bottom,false)}
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Full stack ranking</h3><span class="hint">All ${ranked.length} employees, highest performance first</span></div>
+    <div class="table-wrap" style="max-height:420px;overflow-y:auto">${rankTable(ranked,true)}</div>
+  </div>`;
+};
+function ninebox(grid,total){
+  const rows=['High','Medium','Low'];
+  const cols=['Low','Medium','High'];
+  const labels={'High|High':'Star talent','High|Medium':'High performer','High|Low':'Consistent performer',
+    'Medium|High':'High potential','Medium|Medium':'Core performer','Medium|Low':'Steady contributor',
+    'Low|High':'Diamond in the rough','Low|Medium':'Inconsistent','Low|Low':'Needs support'};
+  return `<div class="ninebox-grid">
+    <div class="ninebox-axis-y">Performance →</div>
+    ${rows.map(p=>cols.map(q=>{
+      const n=grid[p+'|'+q]||0; const pct=total?round1(n/total*100):0;
+      const tier=(p==='High'&&q==='High')?'good':((p==='Low'&&q==='Low')?'critical':'neutral');
+      return `<div class="ninebox-cell tier-${tier}">
+        <div class="ninebox-n">${n}</div>
+        <div class="ninebox-label">${labels[p+'|'+q]}</div>
+        <div class="ninebox-pct">${pct}%</div>
+      </div>`;
+    }).join('')).join('')}
+    <div class="ninebox-axis-x">Potential →</div>
+  </div>`;
+}
+function rankTable(list,isTop){
+  return `<div class="table-wrap"><table><thead><tr><th>#</th><th>Name</th><th>Dept</th><th>Manager</th><th>Score</th></tr></thead>
+  <tbody>${list.map((e,i)=>`<tr><td class="tabular subtle">${i+1}</td><td class="name">${esc(e.name)}</td><td>${esc(DEPTS.find(d=>d.id===e.deptId).name)}</td><td>${esc(empById[e.managerId]?empById[e.managerId].name:'—')}</td><td>${perfPill(e.perfBand)} <span class="tabular subtle">${e.perf}</span></td></tr>`).join('')}</tbody></table></div>`;
+}
+
+/* ---------- PEOPLE TEAM: Workforce Planner (HR + C-suite) ---------- */
+SECTION_RENDERERS['people:workforce']=function(){
+  const bench=benchStrengthByDept();
+  const companyBench=round1(avg(bench.map(b=>b.pct)));
+  const seqColor=(score)=>{ // 1-5 sequential ramp toward the brand accent
+    const t=(score-1)/4;
+    return `color-mix(in srgb, var(--accent) ${Math.round(t*85)}%, var(--paper-2))`;
+  };
+  return `
+  <div class="section-title-wrap" style="margin-bottom:2px">
+    <h2 class="section-title">Workforce planner</h2>
+    <p class="section-desc">Competency coverage and succession bench strength across every team — built for HR and executive leadership planning conversations.</p>
+    <span class="pill neutral" style="margin-top:6px">Visible to: HR &amp; Executive Leadership</span>
+  </div>
+  <div class="kpi-row">
+    <div class="kpi"><div class="label">Company bench strength</div><div class="value">${companyBench}<span class="unit">%</span></div><div class="subtle">Manager roles with a ready or near-ready successor</div></div>
+    <div class="kpi"><div class="label">Departments mapped</div><div class="value">${DEPTS.length}<span class="unit">of ${DEPTS.length}</span></div></div>
+    <div class="kpi"><div class="label">Competencies tracked</div><div class="value">${COMPETENCIES.length}<span class="unit">core dimensions</span></div></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Competency map</h3><span class="hint">Avg. proficiency, 1–5 scale, by department</span></div>
+    <div class="table-wrap"><table><thead><tr><th>Department</th>${COMPETENCIES.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead>
+    <tbody>${competencyMatrix.map(row=>`
+      <tr><td class="name">${esc(row.name)}</td>${row.scores.map(s=>`<td style="background:${seqColor(s)};text-align:center;font-weight:700;color:var(--ink-900)">${s}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+    <div class="legend"><div class="item"><span class="swatch" style="background:${seqColor(1)}"></span>1 · developing</div><div class="item"><span class="swatch" style="background:${seqColor(3)}"></span>3 · solid</div><div class="item"><span class="swatch" style="background:${seqColor(5)}"></span>5 · deep bench</div></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Bench strength by team</h3><span class="hint">% of manager roles with a ready-now or 1–2yr successor</span></div>
+    <div class="chart-box" style="height:230px"><canvas id="c-workforce-bench"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Coverage detail</h3></div>
+    <div class="table-wrap"><table><thead><tr><th>Department</th><th>Manager roles</th><th>Covered</th><th>Bench strength</th></tr></thead>
+    <tbody>${bench.map(b=>`
+      <tr><td class="name">${esc(b.name)}</td><td class="tabular">${b.roles}</td><td class="tabular">${b.covered}</td>
+      <td>${barCell(b.pct,100,b.pct>=70?'var(--good)':(b.pct>=40?'var(--warning)':'var(--critical)'))}</td></tr>`).join('')}</tbody></table></div>
+  </div>`;
+};
+
+/* ---------- PEOPLE TEAM: Talent Planning ---------- */
+function successionCandidates(mgr){
+  const pool=employees.filter(e=>e.deptId===mgr.deptId && !e.isManager && !e.isDirector && e.potential>=60)
+    .sort((a,b)=>b.potential-a.potential).slice(0,2);
+  return pool.map(e=>({
+    emp:e,
+    readiness: e.potential>=85 && e.tenureMonths>=18 ? 'Ready now' : (e.potential>=70 ? 'Ready 1–2 yrs' : 'Development needed'),
+  }));
+}
+SECTION_RENDERERS['people:talent']=function(){
+  const nonMgr=employees.filter(e=>!e.isDirector&&!e.isManager);
+  const highPotential=nonMgr.filter(e=>e.potential>=70).sort((a,b)=>b.potential-a.potential);
+  const readyForPromo=nonMgr.filter(e=>e.potential>=75 && e.perf>=4.0 && e.tenureMonths>=12);
+  return `
+  <div class="kpi-row">
+    <div class="kpi"><div class="label">High-potential talent</div><div class="value">${highPotential.length}<span class="unit">of ${nonMgr.length}</span></div><div class="subtle">${round1(highPotential.length/nonMgr.length*100)}% of individual contributors</div></div>
+    <div class="kpi"><div class="label">Ready for promotion</div><div class="value">${readyForPromo.length}<span class="unit">people</span></div><div class="subtle">High performance + high potential + 12mo+ tenure</div></div>
+    <div class="kpi"><div class="label">Avg. potential score</div><div class="value">${Math.round(avg(nonMgr.map(e=>e.potential)))}<span class="unit">/ 100</span></div></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Potential by department</h3><span class="hint">Avg. potential score</span></div>
+    <div class="chart-box" style="height:220px"><canvas id="c-talent-dept"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>High-potential roster</h3><span class="hint">Potential score ≥ 70, top 15</span></div>
+    <div class="table-wrap"><table><thead><tr><th>Name</th><th>Title</th><th>Dept</th><th>Manager</th><th>Performance</th><th>Potential</th></tr></thead>
+    <tbody>${highPotential.slice(0,15).map(e=>`
+      <tr><td class="name">${esc(e.name)}</td><td>${esc(e.title)}</td><td>${esc(DEPTS.find(d=>d.id===e.deptId).name)}</td>
+      <td>${esc(empById[e.managerId]?empById[e.managerId].name:'—')}</td>
+      <td>${perfPill(e.perfBand)}</td>
+      <td>${barCell(e.potential,100,'var(--accent)')}</td></tr>`).join('')}</tbody></table></div>
+  </div>`;
+};
+
+/* ---------- PEOPLE TEAM: Succession Planning ---------- */
+SECTION_RENDERERS['people:succession']=function(){
+  const rows=managersFull.map(m=>({m, candidates:successionCandidates(m)}));
+  const covered=rows.filter(r=>r.candidates.some(c=>c.readiness!=='Development needed')).length;
+  const gaps=rows.filter(r=>r.candidates.length===0);
+  return `
+  <div class="kpi-row">
+    <div class="kpi"><div class="label">Manager roles</div><div class="value">${managersFull.length}<span class="unit">key roles tracked</span></div></div>
+    <div class="kpi"><div class="label">Bench coverage</div><div class="value">${round1(covered/managersFull.length*100)}<span class="unit">%</span></div><div class="subtle">Have a ready-now or 1–2yr successor</div></div>
+    <div class="kpi"><div class="label">Coverage gaps</div><div class="value" style="color:${gaps.length?'var(--critical)':'var(--ink-900)'}">${gaps.length}<span class="unit">roles with no candidate</span></div></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Succession bench — by manager role</h3><span class="hint">Up to 2 candidates per role, from within the same department</span></div>
+    <div class="table-wrap"><table><thead><tr><th>Role (incumbent)</th><th>Incumbent risk</th><th>Candidate</th><th>Readiness</th></tr></thead>
+    <tbody>${rows.map(r=>{
+      if(!r.candidates.length) return `<tr><td class="name">${esc(r.m.name)} <span class="subtle">— ${esc(DEPTS.find(d=>d.id===r.m.deptId).name)}</span></td><td>${riskPill(r.m.riskBand,null)}</td><td class="subtle" colspan="2">No candidate identified — coverage gap</td></tr>`;
+      return r.candidates.map((c,i)=>`<tr>
+        ${i===0?`<td class="name" rowspan="${r.candidates.length}">${esc(r.m.name)} <span class="subtle">— ${esc(DEPTS.find(d=>d.id===r.m.deptId).name)}</span></td><td rowspan="${r.candidates.length}">${riskPill(r.m.riskBand,null)}</td>`:''}
+        <td>${esc(c.emp.name)} <span class="subtle">· ${esc(c.emp.title)}</span></td>
+        <td>${c.readiness==='Ready now'?'<span class="pill good"><span class="pdot"></span>Ready now</span>':c.readiness==='Ready 1–2 yrs'?'<span class="pill warning"><span class="pdot"></span>Ready 1–2 yrs</span>':'<span class="pill neutral">Development needed</span>'}</td>
+      </tr>`).join('');
+    }).join('')}</tbody></table></div>
+  </div>`;
+};
+
+/* ---------- PEOPLE TEAM: Attrition trends ---------- */
+SECTION_RENDERERS['people:attrition']=function(){
+  return `
+  <div class="card">
+    <div class="card-head"><h3>Company attrition rate trend</h3><span class="hint">Monthly, annualized est.</span></div>
+    <div class="chart-box" style="height:220px"><canvas id="c-attr-trend"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Attrition rate by department</h3><span class="hint">Latest monthly, annualized est.</span></div>
+    <div class="chart-box" style="height:230px"><canvas id="c-attr-dept"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Highest attrition-risk managers</h3><span class="hint">Company-wide, ranked by flagged reports</span></div>
+    <div class="table-wrap"><table><thead><tr><th>Manager</th><th>Dept</th><th>Team</th><th>High risk</th><th>Elevated</th><th>Trend</th></tr></thead>
+    <tbody>${managersFull.slice().sort((a,b)=>managerAgg(b).highRisk-managerAgg(a).highRisk).slice(0,10).map(m=>{const agg=managerAgg(m);return `
+      <tr><td class="name">${esc(m.name)}</td><td>${esc(DEPTS.find(d=>d.id===m.deptId).name)}</td><td class="tabular">${agg.headcount}</td>
+      <td>${agg.highRisk?riskPill('High',agg.highRisk):'—'}</td><td>${agg.elevatedRisk||'—'}</td>
+      <td style="width:100px"><div class="chart-box" style="height:30px"><canvas id="spark2-${m.id}"></canvas></div></td></tr>`;}).join('')}</tbody></table></div>
+  </div>`;
+};
+
+/* ---------- PEOPLE TEAM: Exit Interviews (automated, simulated) ---------- */
+SECTION_RENDERERS['people:exit']=function(){
+  const recs=EXIT_RECORDS;
+  const avgSent=Math.round(avg(recs.map(r=>r.sentiment)));
+  const wouldRec=round1(recs.filter(r=>r.wouldRecommend==='Yes').length/recs.length*100);
+  const byReason={}; recs.forEach(r=>{byReason[r.reason]=(byReason[r.reason]||0)+1;});
+  const reasonList=Object.entries(byReason).sort((a,b)=>b[1]-a[1]);
+  return `
+  <div class="section-title-wrap" style="margin-bottom:2px">
+    <h2 class="section-title">Exit interviews</h2>
+    <p class="section-desc">Automatically collected on every departure and rolled up here — no manual survey chasing. All records are de-identified by design.</p>
+  </div>
+  <div class="kpi-row">
+    <div class="kpi"><div class="label">Exits (trailing 12mo)</div><div class="value">${recs.length}<span class="unit">interviews completed</span></div></div>
+    <div class="kpi"><div class="label">Avg. exit sentiment</div><div class="value">${avgSent}<span class="unit">/ 100</span></div></div>
+    <div class="kpi"><div class="label">Would recommend as an employer</div><div class="value">${wouldRec}<span class="unit">%</span></div></div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-head"><h3>Top reasons for leaving</h3><span class="hint">Trailing 12 months</span></div>
+      <div class="chart-box" style="height:230px"><canvas id="c-exit-reason"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h3>Exit sentiment trend</h3><span class="hint">Monthly average</span></div>
+      <div class="chart-box" style="height:230px"><canvas id="c-exit-sentiment"></canvas></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Recent exit interviews</h3><span class="hint">De-identified · illustrative quotes</span></div>
+    <div class="table-wrap"><table><thead><tr><th>Dept</th><th>Title</th><th>Tenure</th><th>Reason</th><th>Sentiment</th><th>Note</th></tr></thead>
+    <tbody>${recs.slice().sort((a,b)=>a.monthsAgo-b.monthsAgo).slice(0,12).map(r=>`
+      <tr><td>${esc(DEPTS.find(d=>d.id===r.deptId).name)}</td><td>${esc(r.title)}</td><td class="tabular">${(r.tenureMonths/12).toFixed(1)} yr</td>
+      <td><span class="pill neutral">${esc(r.reason)}</span></td>
+      <td>${barCell(r.sentiment,100,r.sentiment>=65?'var(--good)':(r.sentiment>=42?'var(--warning)':'var(--critical)'))}</td>
+      <td class="subtle">“${esc(r.quote)}”</td></tr>`).join('')}</tbody></table></div>
+  </div>`;
+};
+
+/* ---------- SHARED: ER Tracker (HRBP scoped + People Team company-wide) ---------- */
+function erScope(){
+  return state.role==='hrbp' ? ER_CASES.filter(c=>hrbpDepts().includes(c.deptId)) : ER_CASES;
+}
+function erTrackerSection(){
+  const cases=erScope();
+  const open=cases.filter(c=>c.stage!=='Closed');
+  const closed=cases.filter(c=>c.stage==='Closed');
+  const breached=cases.filter(c=>c.status==='Breached');
+  const slaCompliance=cases.length? round1((cases.length-breached.length)/cases.length*100) : 100;
+  const byTheme={}; cases.forEach(c=>{byTheme[c.theme]=(byTheme[c.theme]||0)+1;});
+  const themes=Object.entries(byTheme).sort((a,b)=>b[1]-a[1]);
+  const statusPill=s=>s==='Breached'?'<span class="pill critical"><span class="pdot"></span>Breached</span>'
+    :s==='At risk'?'<span class="pill warning"><span class="pdot"></span>At risk</span>'
+    :s==='Closed'?'<span class="pill neutral">Closed</span>'
+    :'<span class="pill good"><span class="pdot"></span>On track</span>';
+  return `
+  <div class="section-title-wrap" style="margin-bottom:2px">
+    <h2 class="section-title">Employee relations tracker</h2>
+    <p class="section-desc">De-identified case categories, SLA compliance, and SOP milestones. No individual names, protected traits, or predicted outcomes — ever.</p>
+  </div>
+  <div class="kpi-row">
+    <div class="kpi"><div class="label">Open cases</div><div class="value">${open.length}<span class="unit">of ${cases.length}</span></div></div>
+    <div class="kpi"><div class="label">SLA compliance</div><div class="value" style="color:${slaCompliance<85?'var(--critical)':'var(--ink-900)'}">${slaCompliance}<span class="unit">%</span></div><div class="subtle">${breached.length} breached</div></div>
+    <div class="kpi"><div class="label">Closed (12mo)</div><div class="value">${closed.length}<span class="unit">cases</span></div></div>
+    <div class="kpi"><div class="label">Top recurring theme</div><div class="value" style="font-size:22px">${themes[0]?esc(themes[0][0]):'—'}</div><div class="subtle">${themes[0]?themes[0][1]+' cases':''}</div></div>
+  </div>
+  ${breached.length?`<div class="amp-card" style="border-color:var(--critical)"><div class="amp-icon" style="background:var(--critical-soft);color:var(--critical)">⚠</div><div class="amp-body"><div class="amp-title">Escalation required</div><div class="amp-desc">${breached.length} case${breached.length>1?'s have':' has'} breached SLA and need qualified human review now.</div></div></div>`:''}
+  <div class="grid2">
+    <div class="card">
+      <div class="card-head"><h3>Recurring themes</h3><span class="hint">Case count by theme</span></div>
+      <div class="chart-box" style="height:220px"><canvas id="c-er-theme"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h3>Cases by stage</h3></div>
+      <div class="chart-box" style="height:220px"><canvas id="c-er-stage"></canvas></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Case log</h3><span class="hint">SOP milestone progress per case</span></div>
+    <div class="table-wrap"><table><thead><tr><th>Case</th><th>Category</th><th>Theme</th><th>Stage</th><th>SLA status</th><th>SOP progress</th></tr></thead>
+    <tbody>${cases.slice().sort((a,b)=>a.daysRemaining-b.daysRemaining).map(c=>{
+      const done=c.sopMilestones.filter(s=>s.done).length;
+      return `<tr><td class="name">${c.id}</td><td>${esc(c.category)}</td><td><span class="pill neutral">${esc(c.theme)}</span></td><td>${esc(c.stage)}</td><td>${statusPill(c.status)}</td>
+      <td>${barCell(done,5,done===5?'var(--good)':'var(--accent)')}</td></tr>`;}).join('')}</tbody></table></div>
+  </div>`;
+}
+SECTION_RENDERERS['hrbp:ertracker']=erTrackerSection;
+SECTION_RENDERERS['people:ertracker']=erTrackerSection;
+
+/* ---------- SHARED: Org Diagnostics (bottleneck-hypothesis agent) ---------- */
+function orgDiagScope(){
+  return state.role==='hrbp' ? managersFull.filter(m=>hrbpDepts().includes(m.deptId)) : managersFull;
+}
+const ORG_THRESHOLDS={span:10, workload:65, latency:60, density:companyManagementDensity*0.7};
+function orgDiagSection(){
+  const mgrs=orgDiagScope();
+  const flagged=mgrs.filter(m=>m.spanOfControl>ORG_THRESHOLDS.span || m.workloadPressureProxy>=ORG_THRESHOLDS.workload || m.decisionLatencyProxy>=ORG_THRESHOLDS.latency);
+  const runKey=state.role+':'+(state.role==='hrbp'?currentHrbp().id:'company');
+  const run=state.orgDiagRuns[runKey];
+  return `
+  <div class="section-title-wrap" style="margin-bottom:2px">
+    <h2 class="section-title">Org diagnostics</h2>
+    <p class="section-desc">Spans of control, management density, workload pressure and decision latency — compared against this workspace's own internal thresholds, not an industry benchmark.</p>
+  </div>
+  <div class="kpi-row">
+    <div class="kpi"><div class="label">Median span of control</div><div class="value">${companyMedianSpan}<span class="unit">reports</span></div></div>
+    <div class="kpi"><div class="label">Management density</div><div class="value">${companyManagementDensity}<span class="unit">%</span></div><div class="subtle">Managers ÷ total headcount</div></div>
+    <div class="kpi"><div class="label">Flagged managers</div><div class="value" style="color:${flagged.length?'var(--critical)':'var(--ink-900)'}">${flagged.length}<span class="unit">of ${mgrs.length}</span></div><div class="subtle">Exceed one or more internal thresholds</div></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Structural signals by manager</h3><span class="hint">Illustrative proxies · thresholds configurable for this workspace</span></div>
+    <div class="table-wrap"><table><thead><tr><th>Manager</th><th>Dept</th><th>Span</th><th>Workload pressure</th><th>Decision latency</th><th>Attrition (12mo)</th></tr></thead>
+    <tbody>${mgrs.slice().sort((a,b)=>b.workloadPressureProxy-a.workloadPressureProxy).map(m=>`
+      <tr>
+        <td class="name">${esc(m.name)}</td>
+        <td>${esc(DEPTS.find(d=>d.id===m.deptId).name)}</td>
+        <td class="tabular" style="${m.spanOfControl>ORG_THRESHOLDS.span?'color:var(--critical);font-weight:700':''}">${m.spanOfControl}</td>
+        <td>${barCell(m.workloadPressureProxy,100,m.workloadPressureProxy>=ORG_THRESHOLDS.workload?'var(--critical)':'var(--accent)')}</td>
+        <td>${barCell(m.decisionLatencyProxy,100,m.decisionLatencyProxy>=ORG_THRESHOLDS.latency?'var(--critical)':'var(--accent)')}</td>
+        <td class="tabular">${m.attritionRate12mo}%</td>
+      </tr>`).join('')}</tbody></table></div>
+  </div>
+  <div class="card agent-intro">
+    <div class="card-head">
+      <h3>Bottleneck diagnostic agent</h3>
+      <span class="hint">Illustrative prototype · human review required</span>
+    </div>
+    <p class="section-desc" style="margin:0 0 14px">
+      Reads the structural signals above and names the smallest set of bottlenecks that explain the largest share of
+      operating friction — as testable hypotheses with cited evidence, never as verdicts. It never rates, ranks, or
+      flags an individual, and every finding needs your validation before it becomes an action.
+    </p>
+    <button class="btn ask" id="run-orgdiag-btn" ${state.orgDiagBusy?'disabled':''}>
+      ${state.orgDiagBusy?'⏳ Analyzing…':(run?'⚡ Re-run diagnostic':'⚡ Run bottleneck diagnostic')}
+    </button>
+    ${run&&!state.orgDiagBusy?`<span class="subtle" style="margin-left:10px">Last run ${esc(run.generatedAt)}</span>`:''}
+  </div>
+  <div id="orgdiag-output">${run?renderOrgDiagRun(run):`<div class="empty-note">No diagnostic run yet this session.</div>`}</div>`;
+}
+function renderOrgDiagRun(run){
+  const hyps=run.hypotheses||[];
+  if(!hyps.length) return `<div class="empty-note">The agent returned no hypotheses.</div>`;
+  return hyps.map((h,i)=>`
+    <div class="card" style="border-left:3px solid var(--accent)">
+      <div class="card-head">
+        <h3>${i+1}. ${esc(h.title||'Untitled hypothesis')}</h3>
+        <span class="pill ${h.confidence==='High'?'good':h.confidence==='Medium'?'warning':'neutral'}">${esc(h.confidence||'Unknown')} confidence</span>
+      </div>
+      <p class="section-desc" style="margin:0 0 8px"><strong>Evidence:</strong> ${esc(h.evidence||'')}</p>
+      <div class="draft-msg">
+        <div class="draft-msg-head"><span>30-day experiment</span></div>
+        <div class="draft-subject">${esc(h.experiment||'')}</div>
+        <div class="draft-body">Owner: ${esc(h.owner||'—')}  ·  Success measure: ${esc(h.successMeasure||'—')}</div>
+      </div>
+    </div>`).join('') + `<p class="hint">Illustrative prototype output. All calculations are aggregate proxies for this workspace — a human validates causes and owns any resulting decision.</p>`;
+}
+async function runOrgDiagnostic(){
+  if(state.orgDiagBusy) return;
+  const runKey=state.role+':'+(state.role==='hrbp'?currentHrbp().id:'company');
+  state.orgDiagBusy=true; renderAll();
+  try{
+    const sample=await claude.use('sample');
+    if(!sample){
+      state.orgDiagRuns[runKey]={generatedAt:new Date().toLocaleString(), hypotheses:[{title:'AI assistant isn’t available in this preview context.',evidence:'',confidence:'Low',experiment:'',owner:'',successMeasure:''}]};
+      return;
+    }
+    const sys=ORG_ANALYST_SYSTEM_PROMPT+`\n\nCurrent scope: ${scopeLabel()}. Use the get_org_diagnostics and get_top_attrition_risks tools to pull real figures for this scope before writing anything — never invent numbers. All data is simulated demo data, not a real company.\n\n`+
+      `Produce a JSON object with EXACTLY this shape:\n`+
+      `{"hypotheses":[{"title":string,"evidence":string,"confidence":"High"|"Medium"|"Low","experiment":string,"owner":string,"successMeasure":string}]} // 2-3 hypotheses, ranked by impact × evidence strength × reversibility, most impactful first.\n\n`+
+      `Return ONLY the JSON object.`;
+    const result=await sample.json(sys,{tools:AI_TOOLS, modelTier:'default'});
+    state.orgDiagRuns[runKey]={...result, generatedAt:new Date().toLocaleString()};
+  }catch(err){
+    state.orgDiagRuns[runKey]={generatedAt:new Date().toLocaleString(), hypotheses:[{title:'The diagnostic run failed.',evidence:(err&&err.message)?err.message:'Unknown error.',confidence:'Low',experiment:'',owner:'',successMeasure:''}]};
+  }finally{
+    state.orgDiagBusy=false; renderAll();
+  }
+}
+SECTION_RENDERERS['hrbp:orgdiag']=orgDiagSection;
+SECTION_RENDERERS['people:orgdiag']=orgDiagSection;
+
+/* ---------- PEOPLE TEAM: Integrations ---------- */
+const INTEGRATIONS=[
+  {name:'Workday',color:'#f47d20',initial:'W',status:'Connected',meta:`Synced ${TOTAL_HC} employee records · 2 hours ago`,
+   fields:['Worker ID','Job Profile','Cost Center','Manager Hierarchy','Hire Date','Termination Reason']},
+  {name:'ADP Workforce Now',color:'#d0021b',initial:'A',status:'Connected',meta:'Payroll &amp; compensation feed · synced 1 day ago',
+   fields:['Employee ID','Pay Group','Base Comp','FLSA Status']},
+  {name:'Greenhouse',color:'#24a47f',initial:'G',status:'Not connected',meta:'Bring in requisition &amp; time-to-fill data',
+   fields:['Requisition ID','Stage','Source']},
+  {name:'Slack pulse channel',color:'#4a154b',initial:'S',status:'Connected',meta:'Monthly pulse survey distribution · synced today',
+   fields:['Channel ID','Response Rate','Survey Template']},
+];
+SECTION_RENDERERS['people:integrations']=function(){
+  return `
+  <div class="section-title-wrap" style="margin-bottom:2px">
+    <h2 class="section-title">HRIS &amp; data source integrations</h2>
+    <p class="section-desc">Avenues for feeding Tap In from your systems of record. This workspace uses simulated data — connect a real source to replace it.</p>
+  </div>
+  <div class="grid2" style="grid-template-columns:1fr 1fr">
+    ${INTEGRATIONS.map(ig=>`
+      <div class="integration-card">
+        <div class="integration-logo" style="background:${ig.color}">${ig.initial}</div>
+        <div class="integration-body">
+          <div class="integration-name">${esc(ig.name)} ${ig.status==='Connected'?`<span class="pill good"><span class="pdot"></span>Connected</span>`:`<span class="pill neutral">Not connected</span>`}</div>
+          <div class="integration-meta">${ig.meta}</div>
+          <div class="integration-fields">${ig.fields.map(f=>`<span class="field-chip">${esc(f)}</span>`).join('')}</div>
+        </div>
+      </div>`).join('')}
+  </div>`;
+};
+
+/* ---------- PEOPLE TEAM: Data Architecture / Schema ---------- */
+const DATA_SCHEMA=[
+  {source:'Workday (HRIS)', dir:'In', elements:'Worker ID, job profile, org & manager hierarchy, cost center, hire/termination date', optimizes:'Org structure accuracy, tenure & headcount modeling, manager-of-record mapping'},
+  {source:'ADP Workforce Now', dir:'In', elements:'Employee ID, pay group, base compensation, FLSA status', optimizes:'Pay-equity-aware attrition risk, comp-driven flight-risk signal'},
+  {source:'Greenhouse (ATS)', dir:'In', elements:'Requisition ID, pipeline stage, source, time-to-fill', optimizes:'Backfill planning, requisition-to-attrition linkage'},
+  {source:'Slack pulse channel', dir:'In', elements:'Response rate, sentiment score, survey template', optimizes:'Engagement trend detection, coaching-trigger timing'},
+  {source:'Workday (write-back)', dir:'Out', elements:'Flight-risk flag, coaching-plan status (custom fields)', optimizes:'Keeps the system of record current for audit & compliance'},
+  {source:'Slack / Teams', dir:'Out', elements:'Manager coaching nudges, stay-interview reminders', optimizes:'Faster manager action, less manual HRBP outreach'},
+  {source:'BI / exec reporting', dir:'Out', elements:'KPI snapshots, benchmark rankings, attrition hotspots', optimizes:'Leadership visibility, board-ready reporting'},
+  {source:'Calendar / ATS', dir:'Out', elements:'Stay-interview invites, backfill requisition triggers', optimizes:'Scheduling speed, faster backfill start'},
+];
+SECTION_RENDERERS['people:architecture']=function(){
+  const ink700=cssv('--ink-700'), ink300=cssv('--ink-300'), ink500=cssv('--ink-500'), accent=cssv('--accent'), accentSoft=cssv('--accent-soft'), paper2=cssv('--paper-2'), line=cssv('--line');
+  const sources=[
+    {name:'Workday',caption:'Core HRIS · org & job data'},
+    {name:'ADP Workforce Now',caption:'Payroll & compensation'},
+    {name:'Greenhouse',caption:'Recruiting & requisitions'},
+    {name:'Slack pulse channel',caption:'Engagement survey'},
+  ];
+  const dests=[
+    {name:'Workday',caption:'Flight-risk write-back'},
+    {name:'Slack / Teams',caption:'Manager nudges'},
+    {name:'BI / exec reporting',caption:'KPIs & benchmarks'},
+    {name:'Calendar / ATS',caption:'Stay-interview invites'},
+  ];
+  const cy=[44,118,192,266];
+  const inLabels=['org & job data','comp data','requisition data','pulse sentiment'];
+  const outLabels=['flight-risk flag','coaching nudges','exec KPIs','interview invites'];
+  const box=(x,y,name,caption,fill)=>`<rect x="${x}" y="${y}" width="200" height="56" rx="9" fill="${fill}" stroke="${line}"/>
+    <text x="${x+14}" y="${y+23}" font-size="12.5" font-weight="700" fill="${ink700}">${esc(name)}</text>
+    <text x="${x+14}" y="${y+40}" font-size="10.5" fill="${ink500}">${esc(caption)}</text>`;
+  const inArrows=sources.map((s,i)=>{
+    const y=cy[i], x1=216, y1=y, x2=330, y2=155, tx=x1+0.3*(x2-x1), ty=y1+0.3*(y2-y1);
+    return `<line x1="${x1}" y1="${y1}" x2="${x2-6}" y2="${y2}" stroke="${ink300}" stroke-width="1.6" marker-end="url(#tap-arrow)"/>
+      <text x="${tx}" y="${ty-6}" font-size="10" fill="${ink500}" text-anchor="middle">${esc(inLabels[i])}</text>`;
+  }).join('');
+  const outArrows=dests.map((d,i)=>{
+    const y=cy[i], x1=530, y1=155, x2=644, y2=y, tx=x1+0.7*(x2-x1), ty=y1+0.7*(y2-y1);
+    return `<line x1="${x1}" y1="${y1}" x2="${x2-6}" y2="${y}" stroke="${ink300}" stroke-width="1.6" marker-end="url(#tap-arrow)"/>
+      <text x="${tx}" y="${ty-6}" font-size="10" fill="${ink500}" text-anchor="middle">${esc(outLabels[i])}</text>`;
+  }).join('');
+  const svg=`
+  <figure style="margin:0">
+    <svg viewBox="0 0 860 320" role="img" aria-label="Data flows from Workday, ADP, Greenhouse and Slack into Tap In's modeling, coaching and automation engines, which write flight-risk flags back to Workday, send nudges to Slack, feed exec reporting, and trigger calendar invites." class="arch-svg" style="max-width:100%;height:auto">
+      <defs><marker id="tap-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L8 4 L0 8 Z" fill="${ink300}"/></marker></defs>
+      ${sources.map((s,i)=>box(16,cy[i]-28,s.name,s.caption,paper2)).join('')}
+      ${dests.map((d,i)=>box(644,cy[i]-28,d.name,d.caption,paper2)).join('')}
+      <rect x="330" y="16" width="200" height="278" rx="12" fill="${accentSoft}" stroke="${accent}" stroke-width="1.4"/>
+      <text x="430" y="8" font-size="11" font-weight="700" fill="${ink500}" text-anchor="middle" style="text-transform:uppercase;letter-spacing:.04em">Tap In</text>
+      <rect x="346" y="24" width="168" height="82" rx="8" fill="none" stroke="${accent}" stroke-width="1" opacity=".55"/>
+      <text x="430" y="58" font-size="12" font-weight="700" fill="${ink700}" text-anchor="middle">Modeling engine</text>
+      <text x="430" y="76" font-size="9.5" fill="${ink500}" text-anchor="middle">Performance · engagement</text>
+      <text x="430" y="89" font-size="9.5" fill="${ink500}" text-anchor="middle">Attrition-risk scoring</text>
+      <rect x="346" y="112" width="168" height="82" rx="8" fill="none" stroke="${accent}" stroke-width="1" opacity=".55"/>
+      <text x="430" y="146" font-size="12" font-weight="700" fill="${ink700}" text-anchor="middle">Coaching engine</text>
+      <text x="430" y="164" font-size="9.5" fill="${ink500}" text-anchor="middle">Matches signals to</text>
+      <text x="430" y="177" font-size="9.5" fill="${ink500}" text-anchor="middle">manager playbooks</text>
+      <rect x="346" y="200" width="168" height="82" rx="8" fill="none" stroke="${accent}" stroke-width="1" opacity=".55"/>
+      <text x="430" y="234" font-size="12" font-weight="700" fill="${ink700}" text-anchor="middle">Automation agent</text>
+      <text x="430" y="252" font-size="9.5" fill="${ink500}" text-anchor="middle">Drafts plans &amp; actions</text>
+      <text x="430" y="265" font-size="9.5" fill="${ink500}" text-anchor="middle">autonomously</text>
+      ${inArrows}
+      ${outArrows}
+    </svg>
+    <figcaption class="hint" style="margin-top:8px">Four systems feed Tap In's modeling and coaching engines; the automation agent writes results back out to the same operating systems your team already uses.</figcaption>
+  </figure>`;
+  return `
+  <div class="section-title-wrap" style="margin-bottom:2px">
+    <h2 class="section-title">Data architecture</h2>
+    <p class="section-desc">What flows into Tap In, what it computes, and what it feeds back out — and to what end.</p>
+  </div>
+  <div class="card">${svg}</div>
+  <div class="card">
+    <div class="card-head"><h3>Source-and-sink schema</h3><span class="hint">8 flows · 4 in / 4 out</span></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>System</th><th>Direction</th><th>Data elements</th><th>Optimizes</th></tr></thead>
+      <tbody>${DATA_SCHEMA.map(r=>`
+        <tr>
+          <td class="name">${esc(r.source)}</td>
+          <td>${r.dir==='In'?'<span class="pill neutral">↓ In</span>':'<span class="pill good"><span class="pdot"></span>↑ Out</span>'}</td>
+          <td>${esc(r.elements)}</td>
+          <td class="subtle">${esc(r.optimizes)}</td>
+        </tr>`).join('')}</tbody></table></div>
+  </div>`;
+};
+
+/* ================================================================
+   7. CHART WIRING PER SECTION
+   ================================================================ */
+function wireSectionInteractions(){
+  const key=state.role+':'+state.section;
+
+  if(key==='manager:overview'){
+    const mgr=currentManager();
+    lineChart('c-mgr-pulse', rangeMonths(), [
+      {label:mgr.name.split(' ')[0]+"'s team", data:rangeSlice(deptEngagementSeries[mgr.deptId]).map(v=>clamp(Math.round(v+rf(-3,3)),20,99)), color:cssv('--accent')},
+      {label:'Company', data:rangeSlice(companyEngagementSeries), color:cssv('--ink-300'), dashed:true, fill:false},
+    ]);
+    const agg=managerAgg(mgr);
+    doughnutChart('c-mgr-risk',['High','Elevated','Low'],[agg.highRisk,agg.elevatedRisk,agg.headcount-agg.highRisk-agg.elevatedRisk],[cssv('--critical'),cssv('--warning'),cssv('--good')]);
+  }
+  if(key==='manager:roster'){
+    document.getElementById('roster-search').addEventListener('input',e=>{
+      const q=e.target.value.toLowerCase();
+      const mgr=currentManager(); const agg=managerAgg(mgr);
+      const filtered=agg.team.filter(x=>x.name.toLowerCase().includes(q)||x.title.toLowerCase().includes(q));
+      document.getElementById('roster-table-wrap').innerHTML=rosterTable(filtered);
+    });
+  }
+  if(key==='manager:pulse'){
+    const mgr=currentManager();
+    lineChart('c-mgr-pulse-full',['P1','P2','P3','P4','P5','P6'],[{label:'Engagement',data:mgr.engagementSpark,color:cssv('--accent')}],{max:100});
+    barChart('c-mgr-attr',['M-5','M-4','M-3','M-2','M-1','Now'],mgr.attritionSpark,mgr.attritionSpark.map(()=>cssv('--cat-4')));
+  }
+  if(key==='manager:amplifier'){
+    document.querySelectorAll('[data-toggle]').forEach(b=>b.addEventListener('click',()=>{
+      const id=b.dataset.toggle; state.taskDone[id]=!state.taskDone[id]; renderAll();
+    }));
+  }
+  if(key==='hrbp:overview'){
+    const depts=hrbpDepts();
+    lineChart('c-hrbp-pulse', rangeMonths(), [
+      {label:'Client group', data:rangeSlice(deptEngagementSeries[depts[0]]), color:cssv('--accent')},
+      {label:'Company', data:rangeSlice(companyEngagementSeries), color:cssv('--ink-300'), dashed:true, fill:false},
+    ]);
+    const mgrs=hrbpManagers().map(m=>({m,agg:managerAgg(m)})).sort((a,b)=>(b.agg.highRisk+b.agg.elevatedRisk)-(a.agg.highRisk+a.agg.elevatedRisk)).slice(0,8);
+    barChart('c-hrbp-mgrrisk', mgrs.map(x=>x.m.name.split(' ')[0]), mgrs.map(x=>x.agg.highRisk+x.agg.elevatedRisk), mgrs.map(x=>x.agg.highRisk?cssv('--critical'):cssv('--warning')),{horizontal:true});
+  }
+  if(key==='hrbp:benchmark'){
+    const depts=deptAgg.filter(d=>hrbpDepts().includes(d.id));
+    barChart('c-hrbp-deptbench', depts.map(d=>d.name), depts.map(d=>d.avgPerf), depts.map(d=>d.color),{max:5});
+  }
+  if(key==='hrbp:attrition'){
+    hrbpManagers().forEach(m=>sparkline('spark-'+m.id, m.attritionSpark, m.attritionRate12mo>companyAttritionRate?cssv('--critical'):cssv('--good')));
+  }
+  if(key==='hrbp:reports'||key==='people:reports'){
+    document.getElementById('dl-report').addEventListener('click',()=>downloadReport());
+    document.getElementById('dl-report-csv').addEventListener('click',()=>downloadReportCSV());
+    document.getElementById('dl-report-pdf').addEventListener('click',()=>downloadReportPDF());
+  }
+  if(key==='hrbp:agent'){
+    const runBtn=document.getElementById('run-agent-btn');
+    if(runBtn) runBtn.addEventListener('click',()=>runHrbpAgent());
+    document.querySelectorAll('#agent-queue [data-toggle]').forEach(b=>b.addEventListener('click',()=>{
+      const id=b.dataset.toggle; state.agentTaskDone[id]=!state.agentTaskDone[id]; renderAll();
+    }));
+    document.querySelectorAll('[data-copy]').forEach(b=>b.addEventListener('click',async()=>{
+      const i=+b.dataset.copy; const run=state.agentRuns[currentHrbp().id];
+      const msg=run&&run.draftMessages&&run.draftMessages[i];
+      if(!msg) return;
+      const text=(msg.subject?msg.subject+'\n\n':'')+(msg.body||'');
+      try{ await navigator.clipboard.writeText(text); const old=b.textContent; b.textContent='Copied'; setTimeout(()=>{b.textContent=old;},1400);}catch(e){}
+    }));
+  }
+  if(key==='people:overview'){
+    lineChart('c-people-pulse', rangeMonths(), [{label:'Company', data:rangeSlice(companyEngagementSeries), color:cssv('--accent')}]);
+    barChart('c-people-hc', deptAgg.map(d=>d.name), deptAgg.map(d=>d.headcount), deptAgg.map(d=>d.color),{horizontal:true,thick:16});
+  }
+  if(key==='people:performance'){
+    const bands=perfBandCounts;
+    barChart('c-perf-dist', bands.map(b=>b.band), bands.map(b=>b.count), bands.map((b,i)=>i<2?cssv('--good'):i===2?cssv('--ink-300'):i===3?cssv('--warning'):cssv('--critical')));
+    barChart('c-perf-dept', deptAgg.map(d=>d.name), deptAgg.map(d=>d.avgPerf), deptAgg.map(d=>d.color),{max:5});
+  }
+  if(key==='people:attrition'){
+    lineChart('c-attr-trend', MONTHS, [{label:'Company attrition rate (%)',data:companyAttritionSeries.map(v=>round1(v*4)),color:cssv('--cat-4')}]);
+    barChart('c-attr-dept', deptAgg.map(d=>d.name), deptAgg.map(d=>round1(d.attritionRate)), deptAgg.map(d=>d.color),{horizontal:true});
+    managersFull.slice().sort((a,b)=>managerAgg(b).highRisk-managerAgg(a).highRisk).slice(0,10).forEach(m=>sparkline('spark2-'+m.id, m.attritionSpark, cssv('--cat-4')));
+  }
+  if(key==='people:workforce'){
+    const bench=benchStrengthByDept();
+    barChart('c-workforce-bench', bench.map(b=>b.name), bench.map(b=>b.pct), deptAgg.map(d=>d.color),{horizontal:true,max:100});
+  }
+  if(key==='people:talent'){
+    barChart('c-talent-dept', deptAgg.map(d=>d.name), deptAgg.map(d=>Math.round(avg(deptAllStaff(d.id).map(e=>e.potential)))), deptAgg.map(d=>d.color),{max:100});
+  }
+  if(key==='people:exit'){
+    const byReason={}; EXIT_RECORDS.forEach(r=>{byReason[r.reason]=(byReason[r.reason]||0)+1;});
+    const reasonEntries=Object.entries(byReason).sort((a,b)=>b[1]-a[1]);
+    barChart('c-exit-reason', reasonEntries.map(e=>e[0]), reasonEntries.map(e=>e[1]), reasonEntries.map((_,i)=>cssv('--cat-'+((i%8)+1))),{horizontal:true});
+    const sentByMonth=MONTHS.map((_,i)=>{
+      const inMonth=EXIT_RECORDS.filter(r=>r.monthsAgo===(11-i));
+      return inMonth.length?Math.round(avg(inMonth.map(r=>r.sentiment))):null;
+    });
+    lineChart('c-exit-sentiment', MONTHS, [{label:'Avg. exit sentiment', data:sentByMonth, color:cssv('--accent')}]);
+  }
+  if(key==='hrbp:ertracker'||key==='people:ertracker'){
+    const cases=erScope();
+    const byTheme={}; cases.forEach(c=>{byTheme[c.theme]=(byTheme[c.theme]||0)+1;});
+    const themeEntries=Object.entries(byTheme).sort((a,b)=>b[1]-a[1]);
+    barChart('c-er-theme', themeEntries.map(e=>e[0]), themeEntries.map(e=>e[1]), themeEntries.map((_,i)=>cssv('--cat-'+((i%8)+1))),{horizontal:true});
+    const stages=['Intake','Investigation','Resolution','Closed'];
+    doughnutChart('c-er-stage', stages, stages.map(s=>cases.filter(c=>c.stage===s).length), [cssv('--cat-4'),cssv('--warning'),cssv('--accent'),cssv('--good')]);
+  }
+  if(key==='hrbp:orgdiag'||key==='people:orgdiag'){
+    const btn=document.getElementById('run-orgdiag-btn');
+    if(btn) btn.addEventListener('click',()=>runOrgDiagnostic());
+  }
+}
+
+function downloadReport(){
+  const text=window.__lastReport||'';
+  triggerDownload(text);
+}
+async function triggerDownload(text){
+  try{
+    const downloads=await claude.use('downloads');
+    if(downloads){
+      await downloads.save({filename:'tap-in-executive-report.md', data:text});
+      return;
+    }
+  }catch(err){}
+  alert('Download isn\'t available in this preview. Report text is shown on screen — copy it from the card above.');
+}
+function toCSV(headers, rows){
+  const escv=v=>{ v=String(v==null?'':v); return /[",\n]/.test(v)? '"'+v.replace(/"/g,'""')+'"' : v; };
+  return [headers.map(escv).join(','), ...rows.map(r=>r.map(escv).join(','))].join('\r\n');
+}
+async function downloadReportCSV(){
+  const rows=window.__lastReportRows||[];
+  const scope=window.__lastReportScope||'tap-in';
+  const csv=toCSV(['Name','Title','Department','Manager','Performance','Performance band','Engagement','Attrition risk score','Risk band'], rows);
+  try{
+    const downloads=await claude.use('downloads');
+    if(downloads){ await downloads.save({filename:`tap-in-summary-${slugify(scope)}.csv`, data:csv}); return; }
+  }catch(err){}
+  alert('CSV download isn\'t available in this preview.');
+}
+async function downloadReportPDF(){
+  const text=window.__lastReport||'';
+  const scope=window.__lastReportScope||'tap-in';
+  try{
+    const jspdfNs=window.jspdf;
+    if(!jspdfNs) throw new Error('jsPDF not loaded');
+    const doc=new jspdfNs.jsPDF({unit:'pt',format:'letter'});
+    doc.setFont('Courier','normal'); doc.setFontSize(9);
+    const lines=doc.splitTextToSize(text, 500);
+    let y=54;
+    lines.forEach(line=>{
+      if(y>740){ doc.addPage(); y=54; }
+      doc.text(line, 54, y);
+      y+=12;
+    });
+    const blob=doc.output('blob');
+    const downloads=await claude.use('downloads');
+    if(downloads){ await downloads.save({filename:`tap-in-summary-${slugify(scope)}.pdf`, data:blob}); return; }
+  }catch(err){}
+  alert('PDF download isn\'t available in this preview.');
+}
+function slugify(s){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'')||'report'; }
+
+/* ================================================================
+   8. AI ASSISTANT (agentic — tool-calling into the simulated dataset)
+   ================================================================ */
+function scopedStaff(){
+  if(state.role==='manager') return managerAgg(currentManager()).team;
+  if(state.role==='hrbp') return hrbpStaff();
+  return employees;
+}
+function scopeLabel(){
+  if(state.role==='manager') return `Manager view — ${currentManager().name}'s team`;
+  if(state.role==='hrbp') return `HRBP view — ${currentHrbp().name}'s client groups`;
+  return 'People Team view — company-wide';
+}
+function updateAssistScopeLabel(){
+  const el=document.getElementById('assist-scope-label');
+  if(el) el.textContent='Scoped to: '+scopeLabel();
+  renderSuggestChips();
+}
+function renderSuggestChips(){
+  const box=document.getElementById('assist-suggest'); if(!box) return;
+  let chips=[];
+  if(state.role==='manager') chips=['Who on my team is highest attrition risk?','Summarize my team\'s engagement trend','What should I prioritize this week?'];
+  else if(state.role==='hrbp') chips=['Which manager needs coaching most urgently?','Compare my client groups\' benchmarks','Draft talking points for my exec sync'];
+  else chips=['Which department has the highest attrition risk?','Summarize company-wide performance distribution','What should leadership focus on this quarter?'];
+  box.innerHTML=chips.map(c=>`<button class="chip-btn" type="button">${esc(c)}</button>`).join('');
+  box.querySelectorAll('.chip-btn').forEach(b=>b.addEventListener('click',()=>{document.getElementById('assist-text').value=b.textContent; submitAssistant();}));
+}
+
+const AI_TOOLS=[
+  {name:'get_company_kpis', description:'Get company-wide KPI summary: headcount, avg performance, avg engagement, attrition rate.',
+    inputSchema:{type:'object',properties:{}},
+    execute:async()=>({headcount:TOTAL_HC, avgPerformance:companyAvgPerf, avgEngagement:companyAvgEngagement, attritionRatePct:companyAttritionRate, priorPeriodAttritionRatePct:companyAttritionRatePrev, highRiskHeadcount:companyHighRisk})},
+  {name:'get_department_benchmark', description:'Get benchmark metrics for one department by name.',
+    inputSchema:{type:'object',properties:{department:{type:'string'}},required:['department']},
+    execute:async(input)=>{const d=deptAgg.find(x=>x.name.toLowerCase().includes((input.department||'').toLowerCase())); return d?{name:d.name,headcount:d.headcount,avgPerformance:d.avgPerf,avgEngagement:d.avgEngagement,highRisk:d.highRisk,elevatedRisk:d.elevatedRisk,attritionRatePct:round1(d.attritionRate)}:{error:'department not found', available:deptAgg.map(x=>x.name)};}},
+  {name:'list_departments', description:'List all departments with headcount, scoped to what the current viewer can see.',
+    inputSchema:{type:'object',properties:{}},
+    execute:async()=>{ const scope = state.role==='people'? deptAgg.map(d=>d.id) : hrbpDeptsOrManagerDept(); return deptAgg.filter(d=>scope.includes(d.id)).map(d=>({name:d.name,headcount:d.headcount}));}},
+  {name:'get_manager_summary', description:'Get a summary for a manager by name, restricted to managers within the current viewer\'s scope.',
+    inputSchema:{type:'object',properties:{managerName:{type:'string'}},required:['managerName']},
+    execute:async(input)=>{
+      const pool=scopedManagerPool();
+      const m=pool.find(x=>x.name.toLowerCase().includes((input.managerName||'').toLowerCase()));
+      if(!m) return {error:'manager not found in your current scope', availableManagers:pool.map(x=>x.name)};
+      const agg=managerAgg(m);
+      return {name:m.name, department:DEPTS.find(d=>d.id===m.deptId).name, teamSize:agg.headcount, avgPerformance:agg.avgPerf, avgEngagement:agg.avgEngagement, highRisk:agg.highRisk, elevatedRisk:agg.elevatedRisk, attritionRate12moPct:m.attritionRate12mo};
+    }},
+  {name:'get_top_attrition_risks', description:'Get the highest attrition-risk people within the current viewer\'s scope (their own team, client groups, or company-wide).',
+    inputSchema:{type:'object',properties:{limit:{type:'number'}}},
+    execute:async(input)=>{
+      const n=Math.max(1,Math.min(15,input.limit||5));
+      return scopedStaff().slice().sort((a,b)=>b.attritionRisk-a.attritionRisk).slice(0,n).map(e=>({name:e.name,title:e.title,department:DEPTS.find(d=>d.id===e.deptId).name,riskScore:e.attritionRisk,riskBand:e.riskBand,engagement:e.engagement}));
+    }},
+  {name:'get_coaching_suggestions', description:'Get AI-generated manager coaching suggestions within the current viewer\'s scope (HRBP and People Team only; empty for Manager view).',
+    inputSchema:{type:'object',properties:{}},
+    execute:async()=>{
+      if(state.role==='manager') return {note:'Coaching suggestions are generated for HRBP and People Team views.'};
+      const depts = state.role==='hrbp'? hrbpDepts() : DEPTS.map(d=>d.id);
+      return coachingSuggestions(depts).slice(0,10).map(s=>({manager:s.mgr.name,type:s.type,priority:s.priority,recommendation:s.text}));
+    }},
+  {name:'get_org_diagnostics', description:'Get structural signals (span of control, workload pressure proxy, decision latency proxy, attrition rate) for every manager in the current viewer\'s scope, plus company-wide median span and management density.',
+    inputSchema:{type:'object',properties:{}},
+    execute:async()=>({
+      companyMedianSpan, companyManagementDensityPct:companyManagementDensity,
+      thresholds:ORG_THRESHOLDS,
+      managers: orgDiagScope().map(m=>({name:m.name, department:DEPTS.find(d=>d.id===m.deptId).name, spanOfControl:m.spanOfControl, workloadPressureProxy:m.workloadPressureProxy, decisionLatencyProxy:m.decisionLatencyProxy, attritionRate12moPct:m.attritionRate12mo, avgEngagement:managerAgg(m).avgEngagement})),
+    })},
+  {name:'get_er_tracker_summary', description:'Get de-identified employee relations case metrics within the current viewer\'s scope: open/closed counts, SLA compliance, recurring themes. Never returns individual names.',
+    inputSchema:{type:'object',properties:{}},
+    execute:async()=>{
+      const cases=erScope();
+      const byTheme={}; cases.forEach(c=>{byTheme[c.theme]=(byTheme[c.theme]||0)+1;});
+      return {
+        totalCases:cases.length, openCases:cases.filter(c=>c.stage!=='Closed').length, closedCases:cases.filter(c=>c.stage==='Closed').length,
+        breachedSla:cases.filter(c=>c.status==='Breached').length,
+        slaCompliancePct: cases.length? round1((cases.length-cases.filter(c=>c.status==='Breached').length)/cases.length*100):100,
+        recurringThemes: Object.entries(byTheme).sort((a,b)=>b[1]-a[1]).map(([theme,count])=>({theme,count})),
+      };
+    }},
+  {name:'get_exit_interview_summary', description:'Get aggregate exit-interview trends: top reasons for leaving, average sentiment, would-recommend rate. De-identified.',
+    inputSchema:{type:'object',properties:{}},
+    execute:async()=>{
+      const byReason={}; EXIT_RECORDS.forEach(r=>{byReason[r.reason]=(byReason[r.reason]||0)+1;});
+      return {
+        totalExits12mo:EXIT_RECORDS.length, avgSentiment:Math.round(avg(EXIT_RECORDS.map(r=>r.sentiment))),
+        wouldRecommendPct: round1(EXIT_RECORDS.filter(r=>r.wouldRecommend==='Yes').length/EXIT_RECORDS.length*100),
+        topReasons: Object.entries(byReason).sort((a,b)=>b[1]-a[1]).map(([reason,count])=>({reason,count})),
+      };
+    }},
+];
+const ORG_ANALYST_SYSTEM_PROMPT=`Illustrative prototype. All calculations below are illustrative, not verified operational metrics.
+
+ROLE
+You are Tap In, an HR operating model analyst supporting an experienced HRBP.
+
+GOAL
+Identify the smallest number of structural or workflow bottlenecks that explain the largest share of operating friction. Rank them by organizational impact, evidence strength, and reversibility.
+
+METHOD
+1. Validate inputs and flag missing or contradictory data.
+2. Calculate spans, management density, workload pressure, decision latency, and attrition risk from the tools provided.
+3. Compare signals with this workspace's configurable internal thresholds. Never present a threshold as a universal benchmark.
+4. Name each bottleneck as a testable hypothesis, not a verdict.
+5. Cite the exact input supporting each finding — separate the observed signal from your inference.
+6. Recommend a 30-day experiment, an accountable owner, and a success measure — a practical validation step, not a conclusion.
+
+PERFORMANCE & CALIBRATION
+You may test evidence completeness, manager rating variance, rating-change frequency, and consistency of rating anchors. Never assign, force, or recommend an individual performance rating.
+
+EMPLOYEE RELATIONS
+You may track de-identified issue categories, stages, cycle time, repeat themes, SLA compliance, and SOP milestones. Never predict individual misconduct or legal outcomes. Escalate overdue or high-risk processes for qualified human review rather than resolving them yourself.
+
+GUARDRAILS
+Use aggregate data only. Do not infer protected traits, health, intent, individual performance, or individual risk. Do not recommend termination, promotion, compensation, or disciplinary action for any named person. Require human review before any action. Mark all calculations as illustrative.
+
+DECISION SAFEGUARDS
+Privacy by design — reason at the team or company level; never surface an individual employee's name, and reject any free-text input that names a specific person or a sensitive personal detail.
+Evidence before inference — every finding must display its supporting input and a confidence level.
+Human accountability — the HRBP validates causes, chooses interventions, and owns the resulting stakeholder decisions. You never decide on their behalf.`;
+function hrbpDeptsOrManagerDept(){
+  if(state.role==='hrbp') return hrbpDepts();
+  if(state.role==='manager') return [currentManager().deptId];
+  return DEPTS.map(d=>d.id);
+}
+function scopedManagerPool(){
+  if(state.role==='manager') return [currentManager()];
+  if(state.role==='hrbp') return hrbpManagers();
+  return managersFull;
+}
+
+let assistBusy=false;
+function openAssistant(){
+  document.getElementById('assist-drawer').classList.add('open');
+  document.getElementById('assist-backdrop').classList.add('open');
+  if(!document.getElementById('assist-msgs').childElementCount){
+    appendMsg('bot', `Hi — I'm your Tap In assistant. I can see the data for your current view (${scopeLabel()}). Ask me about risk, performance, or coaching, or try a suggestion below.`);
+  }
+  document.getElementById('assist-text').focus();
+}
+function closeAssistant(){
+  document.getElementById('assist-drawer').classList.remove('open');
+  document.getElementById('assist-backdrop').classList.remove('open');
+}
+function appendMsg(role,text,cls){
+  const box=document.getElementById('assist-msgs');
+  const div=document.createElement('div');
+  div.className='msg '+role+(cls?' '+cls:'');
+  div.textContent=text;
+  box.appendChild(div);
+  box.scrollTop=box.scrollHeight;
+  return div;
+}
+async function submitAssistant(){
+  if(assistBusy) return;
+  const input=document.getElementById('assist-text');
+  const text=input.value.trim();
+  if(!text) return;
+  input.value='';
+  appendMsg('user',text);
+  const thinking=appendMsg('bot','Thinking…','thinking');
+  assistBusy=true;
+  document.querySelector('#assist-form button').disabled=true;
+  try{
+    const sample=await claude.use('sample');
+    if(!sample){
+      thinking.remove();
+      appendMsg('sys','The AI assistant isn\'t available in this preview context.');
+      return;
+    }
+    const sys=ORG_ANALYST_SYSTEM_PROMPT+`\n\n`+
+      `The current viewer's persona is: ${scopeLabel()}. Only discuss data within their scope — never claim visibility into data outside it. `+
+      `Use the provided tools to look up real figures before answering; never invent numbers. Be concise (2-6 sentences or a short list) unless the question needs a ranked list of hypotheses. `+
+      `All data is simulated demo data, not a real company — you can say so if asked.`;
+    const res=await sample([{role:'user',content:sys+'\n\nQuestion: '+text}],{
+      tools:AI_TOOLS,
+      modelTier:'quick',
+      onText:({text:t})=>{ thinking.classList.remove('thinking'); thinking.textContent=t; document.getElementById('assist-msgs').scrollTop=9e9; }
+    });
+    thinking.classList.remove('thinking');
+    thinking.textContent=res.text||'(no response)';
+  }catch(err){
+    thinking.classList.remove('thinking');
+    thinking.textContent='Something went wrong reaching the assistant: '+(err && err.message?err.message:'unknown error');
+  }finally{
+    assistBusy=false;
+    document.querySelector('#assist-form button').disabled=false;
+  }
+}
+
+/* ================================================================
+   9. WIRE STATIC UI + INIT
+   ================================================================ */
+document.getElementById('assist-toggle').addEventListener('click',openAssistant);
+document.getElementById('assist-close').addEventListener('click',closeAssistant);
+document.getElementById('assist-backdrop').addEventListener('click',closeAssistant);
+document.getElementById('assist-form').addEventListener('submit',e=>{e.preventDefault(); submitAssistant();});
+
+renderShell();
+renderAll();
+
+})();
+</script>
