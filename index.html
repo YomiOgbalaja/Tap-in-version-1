@@ -218,6 +218,36 @@ input.search{
 .ninebox-label{font-size:10.5px; font-weight:600; color:var(--ink-700); text-align:center; padding:0 4px;}
 .ninebox-pct{font-size:10px; color:var(--ink-500);}
 
+/* ============ ORG CHART ============ */
+.orgchart-controls{display:flex; align-items:center; gap:10px; margin-bottom:16px; flex-wrap:wrap;}
+.orgchart-legend{display:flex; gap:12px; margin-left:auto; font-size:11px; color:var(--ink-500); flex-wrap:wrap;}
+.orgchart-legend .item{display:flex; align-items:center; gap:5px;}
+.orgchart-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:18px;}
+.orgchart-dept{background:var(--paper-2); border:1px solid var(--line-soft); border-radius:12px; padding:16px 14px 14px; display:flex; flex-direction:column; align-items:center;}
+.orgchart-dept-label{font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-500); margin-bottom:10px;}
+.orgchart-node{background:var(--paper-1); border:1px solid var(--line); border-radius:9px; padding:8px 10px; min-width:108px; text-align:center; cursor:pointer; transition:box-shadow .12s,transform .12s; border-left:3px solid var(--ink-300);}
+.orgchart-node:hover{box-shadow:var(--shadow-1); transform:translateY(-1px);}
+.orgchart-node .oc-name{font-size:11.5px; font-weight:700; color:var(--ink-900); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:130px;}
+.orgchart-node .oc-meta{font-size:10px; color:var(--ink-500); margin-top:1px;}
+.orgchart-node.tier-good{border-left-color:var(--good);}
+.orgchart-node.tier-warning{border-left-color:var(--warning);}
+.orgchart-node.tier-critical{border-left-color:var(--critical);}
+.orgchart-stem{width:2px; height:14px; background:var(--line);}
+.orgchart-managers{display:flex; gap:10px; flex-wrap:wrap; justify-content:center; border-top:2px solid var(--line); padding-top:14px; margin-top:0;}
+.orgchart-mgr-wrap{display:flex; flex-direction:column; align-items:center;}
+
+/* ============ SCENARIO PLANNER ============ */
+.scenario-controls{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:18px;}
+.scenario-control{display:flex; flex-direction:column; gap:6px;}
+.scenario-control label{font-size:12px; font-weight:600; color:var(--ink-700); display:flex; justify-content:space-between;}
+.scenario-control label .val{color:var(--accent-ink); font-family:var(--font-mono);}
+.scenario-control input[type="range"]{accent-color:var(--accent); width:100%;}
+.scenario-control select{font:inherit; font-size:12.5px; padding:7px 9px; border-radius:8px; border:1px solid var(--line); background:var(--paper-1); color:var(--ink-900);}
+.scenario-result{display:flex; flex-direction:column; gap:4px; padding:14px 16px; border-radius:10px; background:var(--paper-2); border:1px solid var(--line-soft);}
+.scenario-result .sr-value{font-family:var(--font-display); font-size:24px; font-weight:700;}
+.scenario-result .sr-label{font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-500); font-weight:600;}
+.scenario-result .sr-note{font-size:11px; color:var(--ink-500);}
+
 /* ============ INTEGRATIONS ============ */
 .integration-card{display:flex; gap:13px; align-items:flex-start; border:1px solid var(--line); border-radius:12px; padding:15px; background:var(--paper-1);}
 .integration-logo{width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex:none; font-family:var(--font-display); font-weight:700; font-size:15px; color:#fff;}
@@ -785,14 +815,16 @@ const state={
   orgDiagBusy:false,
   alertDrafts:{},
   assistMode:'data',
+  orgchartMetric:'risk',
+  scenario:{dept:'all', headcountDelta:0, compCatchup:0, retentionEffect:20},
 };
 function rangeSlice(arr){return arr.slice(arr.length-Math.min(state.range,arr.length));}
 function rangeMonths(){return rangeSlice(MONTHS);}
 
 const SECTIONS={
   manager:[['overview','Overview'],['roster','Team Roster'],['pulse','Pulse Trends'],['amplifier','Amplifier']],
-  hrbp:[['overview','Overview'],['benchmark','Benchmarking'],['attrition','Attrition Watch'],['coaching','Coaching Queue'],['comp','Comp & Benefits'],['ertracker','ER Tracker'],['orgdiag','Org Diagnostics'],['alerts','Alert Center'],['agent','Automation Agent'],['reports','Exec Reports']],
-  people:[['overview','Company Overview'],['performance','Performance & Ranking'],['workforce','Workforce Planner'],['talent','Talent Planning'],['succession','Succession Planning'],['attrition','Attrition Trends'],['exit','Exit Interviews'],['comp','Comp & Benefits'],['ertracker','ER Tracker'],['orgdiag','Org Diagnostics'],['alerts','Alert Center'],['integrations','HRIS Integrations'],['architecture','Data Architecture'],['reports','Exec Reports']],
+  hrbp:[['overview','Overview'],['benchmark','Benchmarking'],['scenario','Scenario Planner'],['attrition','Attrition Watch'],['coaching','Coaching Queue'],['comp','Comp & Benefits'],['ertracker','ER Tracker'],['orgdiag','Org Diagnostics'],['alerts','Alert Center'],['agent','Automation Agent'],['reports','Exec Reports']],
+  people:[['overview','Company Overview'],['orgchart','Org Chart'],['performance','Performance & Ranking'],['workforce','Workforce Planner'],['talent','Talent Planning'],['succession','Succession Planning'],['scenario','Scenario Planner'],['attrition','Attrition Trends'],['exit','Exit Interviews'],['comp','Comp & Benefits'],['ertracker','ER Tracker'],['orgdiag','Org Diagnostics'],['alerts','Alert Center'],['integrations','HRIS Integrations'],['architecture','Data Architecture'],['reports','Exec Reports']],
 };
 const ROLE_META={
   manager:{label:'Manager / Partner', icon:'👤'},
@@ -1052,6 +1084,8 @@ function railIcon(name){
     workforce:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="4" width="19" height="14" rx="1.6"/><path d="M2.5 9h19M8 4v14"/></svg>',
     comp:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9.2"/><path d="M12 7v10M14.8 9.3c0-1.3-1.3-2.1-2.8-2.1-1.7 0-2.9.9-2.9 2.1 0 3 5.7 1.5 5.7 4.4 0 1.3-1.3 2.2-2.9 2.2s-2.9-.8-2.9-2.1"/></svg>',
     alerts:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a6 6 0 0 0-6 6c0 4.5-1.5 6-2.5 7h17c-1-1-2.5-2.5-2.5-7a6 6 0 0 0-6-6Z"/><path d="M9.5 20.5a2.5 2.5 0 0 0 5 0"/></svg>',
+    orgchart:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2.5" width="6" height="5" rx="1.3"/><rect x="2.5" y="16.5" width="6" height="5" rx="1.3"/><rect x="9.5" y="16.5" width="5" height="5" rx="1.3"/><rect x="16.5" y="16.5" width="5" height="5" rx="1.3"/><path d="M12 7.5v4M5.5 16.5v-3a1 1 0 0 1 1-1h11a1 1 0 0 1 1 1v3M12 12.5v4"/></svg>',
+    scenario:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="3" width="19" height="18" rx="1.6"/><path d="M6.5 17l3.5-5 3 3 4.5-7" stroke-dasharray="1 2.4"/><circle cx="17.5" cy="8" r="1.3" fill="currentColor" stroke="none"/></svg>',
   };
   return icons[name]||'';
 }
@@ -1586,6 +1620,47 @@ SECTION_RENDERERS['people:overview']=function(){
   </div>`;
 };
 
+/* ---------- PEOPLE TEAM: Interactive Org Chart ---------- */
+const ORGCHART_METRICS={
+  risk:{label:'Attrition risk', tier:m=>{const r=managerAgg(m).highRisk; return r?'critical':(managerAgg(m).elevatedRisk?'warning':'good');}, badge:m=>{const a=managerAgg(m); return a.highRisk?`${a.highRisk} high risk`:(a.elevatedRisk?`${a.elevatedRisk} elevated`:'Low risk');}},
+  perf:{label:'Performance', tier:m=>{const p=managerAgg(m).avgPerf; return p>=3.8?'good':(p>=3.3?'warning':'critical');}, badge:m=>`Perf ${managerAgg(m).avgPerf}`},
+  engagement:{label:'Engagement', tier:m=>{const e=managerAgg(m).avgEngagement; return e>=72?'good':(e>=60?'warning':'critical');}, badge:m=>`Eng ${managerAgg(m).avgEngagement}`},
+  span:{label:'Span of control', tier:m=>m.spanOfControl>ORG_THRESHOLDS.span?'critical':(m.spanOfControl>=ORG_THRESHOLDS.span*0.75?'warning':'good'), badge:m=>`${m.spanOfControl} reports`},
+};
+SECTION_RENDERERS['people:orgchart']=function(){
+  const metricKey=state.orgchartMetric||'risk';
+  return `
+  <div class="section-title-wrap" style="margin-bottom:2px">
+    <h2 class="section-title">Org chart</h2>
+    <p class="section-desc">A live, visual map of the org — color-coded by whichever signal you're watching. Click any card to open that person's profile.</p>
+  </div>
+  <div class="card">
+    <div class="orgchart-controls">
+      <select class="range-select" id="orgchart-metric">${Object.entries(ORGCHART_METRICS).map(([k,v])=>`<option value="${k}" ${k===metricKey?'selected':''}>Color by: ${v.label}</option>`).join('')}</select>
+      <div class="orgchart-legend">
+        <div class="item"><span class="swatch" style="background:var(--good)"></span>On track</div>
+        <div class="item"><span class="swatch" style="background:var(--warning)"></span>Watch</div>
+        <div class="item"><span class="swatch" style="background:var(--critical)"></span>Needs attention</div>
+      </div>
+    </div>
+    <div class="orgchart-grid">
+      ${DEPTS.map(d=>{
+        const director=empById[d.directorId];
+        const mgrs=managersFull.filter(m=>m.deptId===d.id);
+        const metric=ORGCHART_METRICS[metricKey];
+        return `<div class="orgchart-dept">
+          <div class="orgchart-dept-label">${esc(d.name)}</div>
+          <div class="orgchart-node" data-emp="${director.id}"><div class="oc-name">${esc(director.name)}</div><div class="oc-meta">Director · ${deptAllStaff(d.id).length} people</div></div>
+          <div class="orgchart-stem"></div>
+          <div class="orgchart-managers">
+            ${mgrs.map(m=>`<div class="orgchart-mgr-wrap"><div class="orgchart-node tier-${metric.tier(m)}" data-mgr="${m.id}"><div class="oc-name">${esc(m.name)}</div><div class="oc-meta">${esc(metric.badge(m))}</div></div></div>`).join('')}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+};
+
 /* ---------- PEOPLE TEAM: Performance & ranking ---------- */
 function managerScore(m){
   const agg=managerAgg(m);
@@ -1788,6 +1863,74 @@ SECTION_RENDERERS['people:succession']=function(){
     }).join('')}</tbody></table></div>
   </div>`;
 };
+
+/* ---------- SHARED: What-If Scenario Planner ---------- */
+function scenarioDeptOptions(){
+  return state.role==='hrbp' ? hrbpDepts().map(id=>DEPTS.find(d=>d.id===id)) : DEPTS;
+}
+function scenarioStaffFor(deptId){
+  if(deptId==='all') return (state.role==='hrbp'?hrbpStaff():employees.filter(e=>!e.isDirector)).filter(e=>!e.isDirector);
+  return deptAllStaff(deptId).filter(e=>!e.isDirector);
+}
+function scenarioSection(){
+  const sc=state.scenario;
+  const opts=scenarioDeptOptions();
+  if(sc.dept!=='all' && !opts.some(d=>d.id===sc.dept)) sc.dept='all';
+  const staff=scenarioStaffFor(sc.dept);
+  const avgSalary=staff.length?Math.round(avg(staff.map(e=>e.baseSalary))):0;
+  const belowMarketGapSum=staff.reduce((s,e)=>s+Math.max(0,marketRate(e)-e.baseSalary),0);
+  const compCatchupCost=Math.round(belowMarketGapSum*(sc.compCatchup/100));
+  const headcountCost=Math.round(sc.headcountDelta*avgSalary);
+  const currentAttrition=sc.dept==='all'
+    ? round1(avg(opts.map(d=>deptAgg.find(x=>x.id===d.id).attritionRate)))
+    : round1(deptAgg.find(d=>d.id===sc.dept).attritionRate);
+  const projectedAttrition=round1(Math.max(0,currentAttrition*(1-sc.retentionEffect/100)));
+  const departuresAvoided=round1(staff.length*(currentAttrition-projectedAttrition)/100);
+  const avoidedCostSavings=Math.round(departuresAvoided*avgSalary*0.5);
+  const netAnnualImpact=headcountCost+compCatchupCost-avoidedCostSavings;
+  const projectedHeadcount=staff.length+sc.headcountDelta;
+  return `
+  <div class="section-title-wrap" style="margin-bottom:2px">
+    <h2 class="section-title">What-if scenario planner</h2>
+    <p class="section-desc">Model a hiring, pay-equity, or retention move before committing — every number here is a live, illustrative projection from this workspace's simulated data, not a forecast.</p>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Scenario inputs</h3><span class="hint">${staff.length} people in scope</span></div>
+    <div class="scenario-controls">
+      <div class="scenario-control">
+        <label>Scope</label>
+        <select id="sc-dept">
+          <option value="all" ${sc.dept==='all'?'selected':''}>${state.role==='hrbp'?"All my client groups":'Company-wide'}</option>
+          ${opts.map(d=>`<option value="${d.id}" ${sc.dept===d.id?'selected':''}>${esc(d.name)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="scenario-control">
+        <label>Headcount change <span class="val">${sc.headcountDelta>0?'+':''}${sc.headcountDelta}</span></label>
+        <input type="range" id="sc-headcount" min="-15" max="30" value="${sc.headcountDelta}">
+      </div>
+      <div class="scenario-control">
+        <label>Pay-equity catch-up <span class="val">${sc.compCatchup}%</span></label>
+        <input type="range" id="sc-comp" min="0" max="100" step="5" value="${sc.compCatchup}">
+      </div>
+      <div class="scenario-control">
+        <label>Retention program effectiveness <span class="val">${sc.retentionEffect}%</span></label>
+        <input type="range" id="sc-retention" min="0" max="50" step="5" value="${sc.retentionEffect}">
+      </div>
+    </div>
+  </div>
+  <div class="grid3">
+    <div class="scenario-result"><div class="sr-label">Projected headcount</div><div class="sr-value">${projectedHeadcount}</div><div class="sr-note">${sc.headcountDelta>=0?'+':''}${sc.headcountDelta} vs. today's ${staff.length}</div></div>
+    <div class="scenario-result"><div class="sr-label">Projected attrition rate</div><div class="sr-value" style="color:${projectedAttrition<currentAttrition?'var(--good)':'var(--ink-900)'}">${projectedAttrition}%</div><div class="sr-note">vs. ${currentAttrition}% today · ~${departuresAvoided} fewer departures/yr</div></div>
+    <div class="scenario-result"><div class="sr-label">Net annual cost impact</div><div class="sr-value" style="color:${netAnnualImpact>0?'var(--warning)':'var(--good)'}">${netAnnualImpact>=0?'+':'−'}$${Math.abs(netAnnualImpact).toLocaleString()}</div><div class="sr-note">Hiring + comp catch-up, net of avoided-attrition savings</div></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Cost breakdown</h3><span class="hint">Illustrative, simulated-data model</span></div>
+    <div class="chart-box" style="height:210px"><canvas id="c-scenario-cost"></canvas></div>
+    <p class="hint" style="margin-top:10px">Avoided-attrition savings use a common 50%-of-salary replacement-cost heuristic. This is a modeling tool for this workspace's demo data — not a budget commitment.</p>
+  </div>`;
+}
+SECTION_RENDERERS['hrbp:scenario']=scenarioSection;
+SECTION_RENDERERS['people:scenario']=scenarioSection;
 
 /* ---------- PEOPLE TEAM: Attrition trends ---------- */
 SECTION_RENDERERS['people:attrition']=function(){
@@ -2383,6 +2526,30 @@ function wireSectionInteractions(){
       const text=(d.subject?d.subject+'\n\n':'')+(d.body||'');
       try{ await navigator.clipboard.writeText(text); const old=b.textContent; b.textContent='Copied'; setTimeout(()=>{b.textContent=old;},1400);}catch(e){}
     }));
+  }
+  if(key==='people:orgchart'){
+    document.getElementById('orgchart-metric').addEventListener('change',e=>{state.orgchartMetric=e.target.value; renderAll();});
+  }
+  if(key==='hrbp:scenario'||key==='people:scenario'){
+    document.getElementById('sc-dept').addEventListener('change',e=>{state.scenario.dept=e.target.value; renderAll();});
+    document.getElementById('sc-headcount').addEventListener('input',e=>{state.scenario.headcountDelta=+e.target.value; renderAll();});
+    document.getElementById('sc-comp').addEventListener('input',e=>{state.scenario.compCatchup=+e.target.value; renderAll();});
+    document.getElementById('sc-retention').addEventListener('input',e=>{state.scenario.retentionEffect=+e.target.value; renderAll();});
+    const sc=state.scenario;
+    const staff=scenarioStaffFor(sc.dept);
+    const avgSalary=staff.length?Math.round(avg(staff.map(e=>e.baseSalary))):0;
+    const belowMarketGapSum=staff.reduce((s,e)=>s+Math.max(0,marketRate(e)-e.baseSalary),0);
+    const compCatchupCost=Math.round(belowMarketGapSum*(sc.compCatchup/100));
+    const headcountCost=Math.round(sc.headcountDelta*avgSalary);
+    const opts=scenarioDeptOptions();
+    const currentAttrition=sc.dept==='all'
+      ? round1(avg(opts.map(d=>deptAgg.find(x=>x.id===d.id).attritionRate)))
+      : round1(deptAgg.find(d=>d.id===sc.dept).attritionRate);
+    const projectedAttrition=round1(Math.max(0,currentAttrition*(1-sc.retentionEffect/100)));
+    const departuresAvoided=round1(staff.length*(currentAttrition-projectedAttrition)/100);
+    const avoidedCostSavings=Math.round(departuresAvoided*avgSalary*0.5);
+    barChart('c-scenario-cost', ['Hiring cost','Comp catch-up','Avoided-attrition savings'], [headcountCost,compCatchupCost,-avoidedCostSavings],
+      [headcountCost>=0?cssv('--warning'):cssv('--good'), cssv('--accent'), cssv('--good')]);
   }
 }
 
