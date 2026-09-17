@@ -159,6 +159,8 @@ th{
 td{padding:9px 12px; border-bottom:1px solid var(--line-soft); color:var(--ink-700); vertical-align:middle;}
 tr:last-child td{border-bottom:none;}
 tbody tr:hover{background:var(--paper-2);}
+tbody tr[data-emp],tbody tr[data-mgr],tbody tr[data-dept],tbody tr[data-case]{cursor:pointer;}
+tbody tr[data-emp]:hover,tbody tr[data-mgr]:hover,tbody tr[data-dept]:hover,tbody tr[data-case]:hover{background:var(--accent-soft);}
 td.name{color:var(--ink-900); font-weight:600;}
 .subtle{color:var(--ink-500); font-size:11.5px;}
 
@@ -914,7 +916,7 @@ function openDeptDetail(id){
     </div>
     <div class="card-head"><h3 style="font-size:13.5px">Managers in ${esc(d.name)}</h3></div>
     <div class="table-wrap"><table><thead><tr><th>Manager</th><th>Team</th><th>Performance</th><th>Engagement</th><th>Risk</th></tr></thead>
-    <tbody>${mgrs.map(m=>{const agg=managerAgg(m); return `<tr>
+    <tbody>${mgrs.map(m=>{const agg=managerAgg(m); return `<tr data-mgr="${m.id}">
       <td class="name">${mgrLink(m.id,m.name)}</td><td class="tabular">${agg.headcount}</td>
       <td>${barCell(agg.avgPerf,5,'var(--accent)')}</td><td>${barCell(agg.avgEngagement,100,'var(--accent)')}</td>
       <td>${agg.highRisk?riskPill('High',agg.highRisk):(agg.elevatedRisk?riskPill('Elevated',agg.elevatedRisk):riskPill('Low',null))}</td>
@@ -950,14 +952,25 @@ function openCaseDetail(id){
   openModal(c.id, esc(c.category), body);
 }
 
+function handleDrillClick(e){
+  // Find the NEAREST ancestor carrying any drill-target attribute, then act on
+  // that one attribute — a row can carry a fallback (e.g. data-mgr) while a
+  // more specific link inside it (e.g. a department cell's data-dept) exists
+  // closer to the click; .closest() on the combined selector always resolves
+  // to whichever is nearer, so the specific inner link correctly wins.
+  const el=e.target.closest('[data-emp],[data-mgr],[data-dept],[data-case],[data-nav]');
+  if(!el) return;
+  if(el.dataset.emp) openEmployeeDetail(el.dataset.emp);
+  else if(el.dataset.mgr) openManagerDetail(el.dataset.mgr);
+  else if(el.dataset.dept) openDeptDetail(el.dataset.dept);
+  else if(el.dataset.case) openCaseDetail(el.dataset.case);
+  else if(el.dataset.nav){ state.section=el.dataset.nav; renderAll(); }
+}
 function wireDrillDownDelegation(){
-  document.getElementById('main').addEventListener('click',(e)=>{
-    const emp=e.target.closest('[data-emp]'); if(emp){ openEmployeeDetail(emp.dataset.emp); return; }
-    const mgr=e.target.closest('[data-mgr]'); if(mgr){ openManagerDetail(mgr.dataset.mgr); return; }
-    const dept=e.target.closest('[data-dept]'); if(dept){ openDeptDetail(dept.dataset.dept); return; }
-    const kase=e.target.closest('[data-case]'); if(kase){ openCaseDetail(kase.dataset.case); return; }
-    const nav=e.target.closest('[data-nav]'); if(nav){ state.section=nav.dataset.nav; renderAll(); return; }
-  });
+  document.getElementById('main').addEventListener('click',handleDrillClick);
+  // Also wire the modal body itself, so a drill-down link opened from inside
+  // one modal (e.g. "Manager" on an employee's profile) can open the next one.
+  document.getElementById('modal-body').addEventListener('click',handleDrillClick);
   document.getElementById('modal-close').addEventListener('click',closeModal);
   document.getElementById('modal-backdrop').addEventListener('click',(e)=>{ if(e.target.id==='modal-backdrop') closeModal(); });
 }
@@ -1212,7 +1225,7 @@ function peerManagerTable(mgr){
     <thead><tr><th>Manager</th><th>Team</th><th>Avg. performance</th><th>Avg. engagement</th><th>Attrition risk</th></tr></thead>
     <tbody>${peers.map(m=>{
       const agg=managerAgg(m); const isYou=m.id===mgr.id;
-      return `<tr style="${isYou?'background:var(--accent-soft)':''}">
+      return `<tr data-mgr="${m.id}" style="${isYou?'background:var(--accent-soft)':''}">
         <td class="name">${mgrLink(m.id,m.name)}${isYou?' <span class="pill neutral">You</span>':''}</td>
         <td class="tabular">${agg.headcount}</td>
         <td>${barCell(agg.avgPerf,5,agg.avgPerf<companyAvgPerf?'var(--serious)':'var(--accent)')}</td>
@@ -1227,7 +1240,7 @@ function rosterTable(list, opts={}){
   return `<div class="table-wrap"><table>
     <thead><tr><th>Name</th><th>Title</th><th>Tenure</th><th>Performance</th><th>Engagement</th><th>Attrition risk</th></tr></thead>
     <tbody>${list.map(e=>`
-      <tr>
+      <tr data-emp="${e.id}">
         <td class="name">${empLink(e.id,e.name)}</td>
         <td>${esc(e.title)}</td>
         <td class="tabular">${(e.tenureMonths/12).toFixed(1)} yr</td>
@@ -1329,7 +1342,7 @@ SECTION_RENDERERS['hrbp:benchmark']=function(){
     <div class="table-wrap"><table>
       <thead><tr><th>Manager</th><th>Dept</th><th>Team</th><th>Avg. performance</th><th>Avg. engagement</th><th>Risk flags</th></tr></thead>
       <tbody>${mgrs.map(({m,agg})=>`
-        <tr>
+        <tr data-mgr="${m.id}">
           <td class="name">${mgrLink(m.id,m.name)}</td>
           <td>${deptLinkFn(m.deptId,DEPTS.find(d=>d.id===m.deptId).name)}</td>
           <td class="tabular">${agg.headcount}</td>
@@ -1355,7 +1368,7 @@ SECTION_RENDERERS['hrbp:attrition']=function(){
       <tbody>${mgrs.map(m=>{
         const co=companyAttritionRate;
         const worse=m.attritionRate12mo>co;
-        return `<tr>
+        return `<tr data-mgr="${m.id}">
           <td class="name">${mgrLink(m.id,m.name)}</td>
           <td>${deptLinkFn(m.deptId,DEPTS.find(d=>d.id===m.deptId).name)}</td>
           <td class="tabular">${managerAgg(m).headcount}</td>
@@ -1562,7 +1575,7 @@ SECTION_RENDERERS['people:overview']=function(){
     <div class="table-wrap"><table>
       <thead><tr><th>Department</th><th>Headcount</th><th>Avg. performance</th><th>Avg. engagement</th><th>High risk</th><th>Attrition (annualized)</th></tr></thead>
       <tbody>${deptAgg.map(d=>`
-        <tr>
+        <tr data-dept="${d.id}">
           <td class="name"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${d.color};margin-right:7px"></span>${deptLinkFn(d.id,d.name)}</td>
           <td class="tabular">${d.headcount}</td>
           <td>${barCell(d.avgPerf,5,'var(--accent)')}</td>
@@ -1612,7 +1625,7 @@ SECTION_RENDERERS['people:performance']=function(){
     <div class="card-head"><h3>Manager &amp; team scorecard</h3><span class="hint">Composite of performance, engagement &amp; attrition — ranked</span></div>
     <div class="table-wrap"><table><thead><tr><th>Rank</th><th>Manager</th><th>Dept</th><th>Team</th><th>Composite score</th><th>Perf</th><th>Engagement</th><th>Attrition (12mo)</th></tr></thead>
     <tbody>${scored.map((s,i)=>`
-      <tr>
+      <tr data-mgr="${s.m.id}">
         <td class="tabular subtle">${i+1}</td>
         <td class="name">${mgrLink(s.m.id,s.m.name)}</td>
         <td>${deptLinkFn(s.m.deptId,DEPTS.find(d=>d.id===s.m.deptId).name)}</td>
@@ -1660,7 +1673,7 @@ function ninebox(grid,total){
 }
 function rankTable(list,isTop){
   return `<div class="table-wrap"><table><thead><tr><th>#</th><th>Name</th><th>Dept</th><th>Manager</th><th>Score</th></tr></thead>
-  <tbody>${list.map((e,i)=>`<tr><td class="tabular subtle">${i+1}</td><td class="name">${empLink(e.id,e.name)}</td><td>${deptLinkFn(e.deptId,DEPTS.find(d=>d.id===e.deptId).name)}</td><td>${empById[e.managerId]?mgrLink(e.managerId,empById[e.managerId].name):'—'}</td><td>${perfPill(e.perfBand)} <span class="tabular subtle">${e.perf}</span></td></tr>`).join('')}</tbody></table></div>`;
+  <tbody>${list.map((e,i)=>`<tr data-emp="${e.id}"><td class="tabular subtle">${i+1}</td><td class="name">${empLink(e.id,e.name)}</td><td>${deptLinkFn(e.deptId,DEPTS.find(d=>d.id===e.deptId).name)}</td><td>${empById[e.managerId]?mgrLink(e.managerId,empById[e.managerId].name):'—'}</td><td>${perfPill(e.perfBand)} <span class="tabular subtle">${e.perf}</span></td></tr>`).join('')}</tbody></table></div>`;
 }
 
 /* ---------- PEOPLE TEAM: Workforce Planner (HR + C-suite) ---------- */
@@ -1686,7 +1699,7 @@ SECTION_RENDERERS['people:workforce']=function(){
     <div class="card-head"><h3>Competency map</h3><span class="hint">Avg. proficiency, 1–5 scale, by department</span></div>
     <div class="table-wrap"><table><thead><tr><th>Department</th>${COMPETENCIES.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead>
     <tbody>${competencyMatrix.map(row=>`
-      <tr><td class="name">${deptLinkFn(row.deptId,row.name)}</td>${row.scores.map(s=>`<td style="background:${seqColor(s)};text-align:center;font-weight:700;color:var(--ink-900)">${s}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+      <tr data-dept="${row.deptId}"><td class="name">${deptLinkFn(row.deptId,row.name)}</td>${row.scores.map(s=>`<td style="background:${seqColor(s)};text-align:center;font-weight:700;color:var(--ink-900)">${s}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
     <div class="legend"><div class="item"><span class="swatch" style="background:${seqColor(1)}"></span>1 · developing</div><div class="item"><span class="swatch" style="background:${seqColor(3)}"></span>3 · solid</div><div class="item"><span class="swatch" style="background:${seqColor(5)}"></span>5 · deep bench</div></div>
   </div>
   <div class="card">
@@ -1697,7 +1710,7 @@ SECTION_RENDERERS['people:workforce']=function(){
     <div class="card-head"><h3>Coverage detail</h3></div>
     <div class="table-wrap"><table><thead><tr><th>Department</th><th>Manager roles</th><th>Covered</th><th>Bench strength</th></tr></thead>
     <tbody>${bench.map(b=>`
-      <tr><td class="name">${deptLinkFn(b.deptId,b.name)}</td><td class="tabular">${b.roles}</td><td class="tabular">${b.covered}</td>
+      <tr data-dept="${b.deptId}"><td class="name">${deptLinkFn(b.deptId,b.name)}</td><td class="tabular">${b.roles}</td><td class="tabular">${b.covered}</td>
       <td>${barCell(b.pct,100,b.pct>=70?'var(--good)':(b.pct>=40?'var(--warning)':'var(--critical)'))}</td></tr>`).join('')}</tbody></table></div>
   </div>`;
 };
@@ -1730,7 +1743,7 @@ SECTION_RENDERERS['people:talent']=function(){
     <div class="card-head"><h3>High-potential roster</h3><span class="hint">Potential score ≥ 70, top 15</span></div>
     <div class="table-wrap"><table><thead><tr><th>Name</th><th>Title</th><th>Dept</th><th>Manager</th><th>Performance</th><th>Potential</th></tr></thead>
     <tbody>${highPotential.slice(0,15).map(e=>`
-      <tr><td class="name">${empLink(e.id,e.name)}</td><td>${esc(e.title)}</td><td>${deptLinkFn(e.deptId,DEPTS.find(d=>d.id===e.deptId).name)}</td>
+      <tr data-emp="${e.id}"><td class="name">${empLink(e.id,e.name)}</td><td>${esc(e.title)}</td><td>${deptLinkFn(e.deptId,DEPTS.find(d=>d.id===e.deptId).name)}</td>
       <td>${empById[e.managerId]?mgrLink(e.managerId,empById[e.managerId].name):'—'}</td>
       <td>${perfPill(e.perfBand)}</td>
       <td>${barCell(e.potential,100,'var(--accent)')}</td></tr>`).join('')}</tbody></table></div>
@@ -1744,7 +1757,7 @@ SECTION_RENDERERS['people:talent']=function(){
     <div class="card-head"><h3>Promotion readiness &amp; competency gaps</h3><span class="hint">Competency scores from the analyzer · completion from the LMS feed</span></div>
     <div class="table-wrap"><table><thead><tr><th>Name</th><th>Current level</th><th>Next level</th><th>Competency</th><th>LMS completion</th><th>Readiness</th></tr></thead>
     <tbody>${readiness.filter(x=>x.r.next).sort((a,b)=>(a.r.compGap+a.r.lmsGap/20)-(b.r.compGap+b.r.lmsGap/20)).slice(0,15).map(({e,r})=>`
-      <tr><td class="name">${empLink(e.id,e.name)}</td><td>${esc(e.level)}</td><td>${esc(r.next.id)} · ${esc(r.next.title)}</td>
+      <tr data-emp="${e.id}"><td class="name">${empLink(e.id,e.name)}</td><td>${esc(e.level)}</td><td>${esc(r.next.id)} · ${esc(r.next.title)}</td>
       <td>${barCell(avgCompetency(e),5,avgCompetency(e)>=r.next.minCompetency?'var(--good)':'var(--accent)')}</td>
       <td>${barCell(e.lmsCompletionPct,100,e.lmsCompletionPct>=r.next.minLms?'var(--good)':'var(--accent)')}</td>
       <td>${r.status==='Ready now'?'<span class="pill good"><span class="pdot"></span>Ready now</span>':r.status==='Ready 1–2 cycles'?'<span class="pill warning"><span class="pdot"></span>Ready 1–2 cycles</span>':'<span class="pill neutral">Developing</span>'}</td></tr>`).join('')}</tbody></table></div>
@@ -1766,8 +1779,8 @@ SECTION_RENDERERS['people:succession']=function(){
     <div class="card-head"><h3>Succession bench — by manager role</h3><span class="hint">Up to 2 candidates per role, from within the same department</span></div>
     <div class="table-wrap"><table><thead><tr><th>Role (incumbent)</th><th>Incumbent risk</th><th>Candidate</th><th>Readiness</th></tr></thead>
     <tbody>${rows.map(r=>{
-      if(!r.candidates.length) return `<tr><td class="name">${mgrLink(r.m.id,r.m.name)} <span class="subtle">— ${deptLinkFn(r.m.deptId,DEPTS.find(d=>d.id===r.m.deptId).name)}</span></td><td>${riskPill(r.m.riskBand,null)}</td><td class="subtle" colspan="2">No candidate identified — coverage gap</td></tr>`;
-      return r.candidates.map((c,i)=>`<tr>
+      if(!r.candidates.length) return `<tr data-mgr="${r.m.id}"><td class="name">${mgrLink(r.m.id,r.m.name)} <span class="subtle">— ${deptLinkFn(r.m.deptId,DEPTS.find(d=>d.id===r.m.deptId).name)}</span></td><td>${riskPill(r.m.riskBand,null)}</td><td class="subtle" colspan="2">No candidate identified — coverage gap</td></tr>`;
+      return r.candidates.map((c,i)=>`<tr data-emp="${c.emp.id}">
         ${i===0?`<td class="name" rowspan="${r.candidates.length}">${mgrLink(r.m.id,r.m.name)} <span class="subtle">— ${deptLinkFn(r.m.deptId,DEPTS.find(d=>d.id===r.m.deptId).name)}</span></td><td rowspan="${r.candidates.length}">${riskPill(r.m.riskBand,null)}</td>`:''}
         <td>${empLink(c.emp.id,c.emp.name)} <span class="subtle">· ${esc(c.emp.title)}</span></td>
         <td>${c.readiness==='Ready now'?'<span class="pill good"><span class="pdot"></span>Ready now</span>':c.readiness==='Ready 1–2 yrs'?'<span class="pill warning"><span class="pdot"></span>Ready 1–2 yrs</span>':'<span class="pill neutral">Development needed</span>'}</td>
@@ -1791,7 +1804,7 @@ SECTION_RENDERERS['people:attrition']=function(){
     <div class="card-head"><h3>Highest attrition-risk managers</h3><span class="hint">Company-wide, ranked by flagged reports</span></div>
     <div class="table-wrap"><table><thead><tr><th>Manager</th><th>Dept</th><th>Team</th><th>High risk</th><th>Elevated</th><th>Trend</th></tr></thead>
     <tbody>${managersFull.slice().sort((a,b)=>managerAgg(b).highRisk-managerAgg(a).highRisk).slice(0,10).map(m=>{const agg=managerAgg(m);return `
-      <tr><td class="name">${mgrLink(m.id,m.name)}</td><td>${deptLinkFn(m.deptId,DEPTS.find(d=>d.id===m.deptId).name)}</td><td class="tabular">${agg.headcount}</td>
+      <tr data-mgr="${m.id}"><td class="name">${mgrLink(m.id,m.name)}</td><td>${deptLinkFn(m.deptId,DEPTS.find(d=>d.id===m.deptId).name)}</td><td class="tabular">${agg.headcount}</td>
       <td>${agg.highRisk?riskPill('High',agg.highRisk):'—'}</td><td>${agg.elevatedRisk||'—'}</td>
       <td style="width:100px"><div class="chart-box" style="height:30px"><canvas id="spark2-${m.id}"></canvas></div></td></tr>`;}).join('')}</tbody></table></div>
   </div>`;
@@ -1878,7 +1891,7 @@ function erTrackerSection(){
     <div class="table-wrap"><table><thead><tr><th>Case</th><th>Category</th><th>Theme</th><th>Stage</th><th>SLA status</th><th>SOP progress</th></tr></thead>
     <tbody>${cases.slice().sort((a,b)=>a.daysRemaining-b.daysRemaining).map(c=>{
       const done=c.sopMilestones.filter(s=>s.done).length;
-      return `<tr><td class="name">${caseLink(c.id,c.id)}</td><td>${esc(c.category)}</td><td><span class="pill neutral">${esc(c.theme)}</span></td><td>${esc(c.stage)}</td><td>${statusPill(c.status)}</td>
+      return `<tr data-case="${c.id}"><td class="name">${caseLink(c.id,c.id)}</td><td>${esc(c.category)}</td><td><span class="pill neutral">${esc(c.theme)}</span></td><td>${esc(c.stage)}</td><td>${statusPill(c.status)}</td>
       <td>${barCell(done,5,done===5?'var(--good)':'var(--accent)')}</td></tr>`;}).join('')}</tbody></table></div>
   </div>`;
 }
@@ -1909,7 +1922,7 @@ function orgDiagSection(){
     <div class="card-head"><h3>Structural signals by manager</h3><span class="hint">Illustrative proxies · thresholds configurable for this workspace</span></div>
     <div class="table-wrap"><table><thead><tr><th>Manager</th><th>Dept</th><th>Span</th><th>Workload pressure</th><th>Decision latency</th><th>Attrition (12mo)</th></tr></thead>
     <tbody>${mgrs.slice().sort((a,b)=>b.workloadPressureProxy-a.workloadPressureProxy).map(m=>`
-      <tr>
+      <tr data-mgr="${m.id}">
         <td class="name">${mgrLink(m.id,m.name)}</td>
         <td>${deptLinkFn(m.deptId,DEPTS.find(d=>d.id===m.deptId).name)}</td>
         <td class="tabular" style="${m.spanOfControl>ORG_THRESHOLDS.span?'color:var(--critical);font-weight:700':''}">${m.spanOfControl}</td>
@@ -2016,7 +2029,7 @@ function compBenefitsSection(){
       const dstaff=deptAllStaff(b.dept.id);
       const dCompa=round1(avg(dstaff.map(compaRatio)));
       const dBelow=dstaff.filter(e=>compaRatio(e)<0.9).length;
-      return `<tr><td class="name">${deptLinkFn(b.dept.id,b.dept.name)}</td>
+      return `<tr data-dept="${b.dept.id}"><td class="name">${deptLinkFn(b.dept.id,b.dept.name)}</td>
       <td>${barCell(dCompa,1.15,dCompa<0.92?'var(--critical)':(dCompa<0.98?'var(--warning)':'var(--good)'))}</td>
       <td class="tabular">${dBelow}</td><td class="tabular">${b.actual}</td><td class="tabular">${b.budgeted}</td>
       <td class="tabular" style="color:${b.variance>0?'var(--warning)':(b.variance<0?'var(--accent-ink)':'var(--ink-700)')}">${b.variance>0?'+':''}${b.variance}</td></tr>`;
