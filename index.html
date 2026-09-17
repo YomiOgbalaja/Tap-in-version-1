@@ -79,7 +79,9 @@ nav.section-nav{display:flex; flex-direction:column; gap:2px;}
 }
 #topbar h1{font-size:21px;}
 #topbar .sub{font-size:12.5px; color:var(--ink-500); margin-top:2px;}
+.topbar-main{display:flex; align-items:center; gap:10px; min-width:0;}
 .topbar-actions{display:flex; align-items:center; gap:10px;}
+.rail-toggle{display:none; background:none; border:1px solid var(--line); border-radius:8px; width:36px; height:36px; align-items:center; justify-content:center; color:var(--ink-700); cursor:pointer; flex:none;}
 .range-select{font:inherit; font-size:12.5px; padding:7px 10px; border-radius:8px; border:1px solid var(--line); background:var(--paper-1); color:var(--ink-700);}
 .btn{
   font:inherit; font-size:12.5px; font-weight:600; padding:8px 13px; border-radius:8px; border:1px solid var(--line);
@@ -92,6 +94,34 @@ nav.section-nav{display:flex; flex-direction:column; gap:2px;}
 .btn.ask:hover{background:var(--accent-strong); border-color:var(--accent-strong);}
 
 #main{padding:22px 26px 60px; display:flex; flex-direction:column; gap:22px; max-width:1360px; width:100%;}
+#rail-backdrop{position:fixed; inset:0; background:rgba(10,14,15,.36); z-index:44; opacity:0; pointer-events:none; transition:opacity .2s;}
+#rail-backdrop.open{opacity:1; pointer-events:auto;}
+
+/* ============ MOBILE / RESPONSIVE ============ */
+@media (max-width: 880px){
+  #shell{grid-template-columns:1fr;}
+  #rail{
+    position:fixed; top:0; left:0; z-index:45; width:280px; max-width:84vw; height:100vh;
+    transform:translateX(-100%); transition:transform .25s ease; box-shadow:var(--shadow-2);
+  }
+  #rail.open{transform:translateX(0);}
+  .rail-toggle{display:inline-flex;}
+  #topbar{padding:12px 14px; gap:8px;}
+  #topbar h1{font-size:17px;}
+  #main{padding:14px 14px 48px; gap:16px;}
+  .kpi-row{grid-template-columns:repeat(2,1fr);}
+  .card{padding:14px;}
+  #assist-toggle{right:16px; bottom:16px; width:50px; height:50px;}
+  #assist-drawer{width:100vw; max-width:100vw;}
+}
+@media (max-width: 480px){
+  .kpi-row{grid-template-columns:1fr 1fr; gap:8px;}
+  .kpi .value{font-size:24px;}
+  #topbar h1{font-size:16px;}
+  .topbar-actions{gap:6px;}
+  .range-select{padding:6px 7px; font-size:11.5px;}
+  .btn{padding:7px 9px; font-size:11.5px;}
+}
 
 /* ============ KPI TILES ============ */
 .kpi-row{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px;}
@@ -212,6 +242,10 @@ input.search{
 }
 #assist-drawer.open{transform:translateX(0);}
 .assist-head{padding:16px 18px; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between;}
+.assist-tabs{display:flex; gap:4px; padding:8px 10px 0; border-bottom:1px solid var(--line);}
+.assist-tab{flex:1; font:inherit; font-size:12px; font-weight:600; padding:8px 6px; border:none; background:none; color:var(--ink-500); cursor:pointer; border-bottom:2px solid transparent; border-radius:0;}
+.assist-tab:hover{color:var(--ink-900);}
+.assist-tab.active{color:var(--accent-ink); border-bottom-color:var(--accent);}
 .assist-head h3{font-size:16px;}
 .assist-head .sub{font-size:11.5px; color:var(--ink-500); margin-top:2px;}
 .icon-btn{background:none; border:none; color:var(--ink-500); cursor:pointer; padding:6px; border-radius:7px;}
@@ -232,6 +266,25 @@ input.search{
 #assist-backdrop{position:fixed; inset:0; background:rgba(10,14,15,.28); z-index:35; opacity:0; pointer-events:none; transition:opacity .2s;}
 #assist-backdrop.open{opacity:1; pointer-events:auto;}
 
+/* ============ DRILL-DOWN DETAIL MODAL ============ */
+.drill-link{cursor:pointer; text-decoration:none; border-bottom:1px dashed var(--ink-300); transition:border-color .12s;}
+.drill-link:hover{border-color:var(--accent); color:var(--accent-ink);}
+.kpi-link{cursor:pointer;}
+.kpi-link:hover .value{color:var(--accent-ink);}
+.kpi-link .value{transition:color .12s;}
+#modal-backdrop{position:fixed; inset:0; background:rgba(10,14,15,.4); z-index:55; opacity:0; pointer-events:none; transition:opacity .18s; display:flex; align-items:flex-start; justify-content:center; overflow-y:auto; padding:5vh 16px;}
+#modal-backdrop.open{opacity:1; pointer-events:auto;}
+.modal-card{background:var(--paper-1); border-radius:16px; box-shadow:var(--shadow-2); width:100%; max-width:640px; margin-top:0; transform:translateY(-8px); transition:transform .18s; overflow:hidden;}
+#modal-backdrop.open .modal-card{transform:translateY(0);}
+.modal-head{display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:20px 22px 14px; border-bottom:1px solid var(--line-soft);}
+.modal-head h3{font-size:19px;}
+.modal-head .sub{font-size:12.5px; color:var(--ink-500); margin-top:3px;}
+.modal-body{padding:18px 22px 22px; max-height:70vh; overflow-y:auto;}
+.modal-kpi-row{display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:10px; margin-bottom:16px;}
+.modal-kpi{background:var(--paper-2); border:1px solid var(--line-soft); border-radius:10px; padding:10px 12px;}
+.modal-kpi .label{font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-500); font-weight:600;}
+.modal-kpi .value{font-family:var(--font-display); font-size:20px; font-weight:700; margin-top:3px;}
+
 .empty-note{font-size:12.5px; color:var(--ink-500); padding:20px; text-align:center;}
 canvas{max-width:100%;}
 .chart-box{position:relative;}
@@ -240,6 +293,16 @@ canvas{max-width:100%;}
 
 <div id="app"></div>
 <div id="assist-backdrop"></div>
+<div id="rail-backdrop"></div>
+<div id="modal-backdrop">
+  <div class="modal-card" id="modal-card">
+    <div class="modal-head">
+      <div><h3 id="modal-title"></h3><div class="sub" id="modal-sub"></div></div>
+      <button class="icon-btn" id="modal-close" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
 <button id="assist-toggle" aria-label="Open Tap In Assistant" title="Ask Tap In">
   <span class="ring"></span>
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 2C7 2 3 5.6 3 10c0 2.4 1.2 4.6 3.2 6.1-.1 1.2-.5 2.3-1.2 3.3-.2.3 0 .6.3.6 1.7-.2 3.2-.9 4.4-1.9.7.1 1.5.2 2.3.2 5 0 9-3.6 9-8s-4-8.3-9-8.3Z" fill="white"/><circle cx="8.4" cy="10" r="1.15" fill="#0a66c2"/><circle cx="12" cy="10" r="1.15" fill="#0a66c2"/><circle cx="15.6" cy="10" r="1.15" fill="#0a66c2"/></svg>
@@ -252,7 +315,12 @@ canvas{max-width:100%;}
     </div>
     <button class="icon-btn" id="assist-close" aria-label="Close">✕</button>
   </div>
-  <div class="assist-msgs" id="assist-msgs"></div>
+  <div class="assist-tabs" id="assist-tabs">
+    <button class="assist-tab active" data-mode="data">📊 Data Analyst</button>
+    <button class="assist-tab" data-mode="policy">📘 Policy &amp; Resources</button>
+  </div>
+  <div class="assist-msgs" id="assist-msgs-data"></div>
+  <div class="assist-msgs" id="assist-msgs-policy" hidden></div>
   <div class="assist-suggest" id="assist-suggest"></div>
   <form class="assist-input" id="assist-form">
     <input type="text" id="assist-text" placeholder="Ask about your people data…" autocomplete="off">
@@ -564,6 +632,81 @@ function benchStrengthByDept(){
   });
 }
 
+/* ---- per-employee competencies, LMS completion & leveling (feeds promotion readiness) ---- */
+employees.forEach(e=>{
+  e.competencyScores=COMPETENCIES.map((c,i)=>clamp(round1(2.3*COMPETENCY_BIAS[e.deptId][i]*(0.7+0.3*e.perf/5)+rf(-0.5,0.5)),1,5));
+  e.lmsCompletionPct=clamp(Math.round(50+e.engagement*0.4+rf(-15,15)),10,100);
+});
+function avgCompetency(e){ return round1(avg(e.competencyScores)); }
+const LEVELS=[
+  {id:'IC1', title:'Associate', minCompetency:1.6, minLms:40, blurb:'Learning core workflows under close guidance.'},
+  {id:'IC2', title:'Contributor', minCompetency:2.1, minLms:55, blurb:'Executes independently on well-defined work.'},
+  {id:'IC3', title:'Senior Contributor', minCompetency:2.7, minLms:65, blurb:'Owns projects end-to-end; mentors newer teammates.'},
+  {id:'IC4', title:'Staff', minCompetency:3.4, minLms:75, blurb:'Sets technical or functional direction across a team.'},
+  {id:'IC5', title:'Principal', minCompetency:4.1, minLms:85, blurb:'Shapes strategy across multiple teams or the org.'},
+];
+function levelInfo(id){ return LEVELS.find(l=>l.id===id); }
+function nextLevel(id){ const i=LEVELS.findIndex(l=>l.id===id); return i>=0 && i<LEVELS.length-1 ? LEVELS[i+1] : null; }
+function promotionReadiness(e){
+  const next=nextLevel(e.level);
+  if(!next) return {status:'At top tracked level', next:null, compGap:0, lmsGap:0};
+  const compGap=round1(Math.max(0,next.minCompetency-avgCompetency(e)));
+  const lmsGap=Math.max(0,next.minLms-e.lmsCompletionPct);
+  const perfOk=e.perf>=3.8;
+  let status;
+  if(compGap<=0 && lmsGap<=0 && perfOk) status='Ready now';
+  else if(compGap<=0.4 && lmsGap<=15) status='Ready 1–2 cycles';
+  else status='Developing';
+  return {status, next, compGap, lmsGap};
+}
+
+/* ---- comp & benefits analyzer: internal pay vs. simulated industry benchmark, headcount budget ---- */
+const SALARY_MIDPOINT={IC1:65000,IC2:80000,IC3:100000,IC4:130000,IC5:165000,M1:112000,M2:148000,M3:190000};
+const DEPT_COMP_MULT={eng:1.15,data:1.12,product:1.08,sales:1.02,marketing:0.95,content:0.92,cx:0.86,ga:0.9};
+const MARKET_MIDPOINT={}; Object.keys(SALARY_MIDPOINT).forEach(l=>{ MARKET_MIDPOINT[l]=Math.round(SALARY_MIDPOINT[l]*rf(1.01,1.07)/50)*50; });
+employees.forEach(e=>{
+  const mult=DEPT_COMP_MULT[e.deptId]||1;
+  e.baseSalary=Math.round(SALARY_MIDPOINT[e.level]*mult*rf(0.87,1.13)/500)*500;
+});
+function marketRate(e){ return Math.round(MARKET_MIDPOINT[e.level]*(DEPT_COMP_MULT[e.deptId]||1)); }
+function compaRatio(e){ return round1(e.baseSalary/marketRate(e)); }
+const DEPT_BUDGET_VARIANCE={eng:-6,content:4,cx:3,sales:-3,product:2,marketing:1,data:-2,ga:2};
+function headcountBudget(deptId){
+  const actual=deptAllStaff(deptId).length;
+  const budgeted=actual+(DEPT_BUDGET_VARIANCE[deptId]||0);
+  return {budgeted, actual, variance:actual-budgeted};
+}
+function compRisksAndActions(scopeDeptIds){
+  const out=[];
+  scopeDeptIds.forEach(id=>{
+    const dept=DEPTS.find(d=>d.id===id);
+    const staff=deptAllStaff(id);
+    const avgCompa=round1(avg(staff.map(compaRatio)));
+    const belowMarketHighPerf=staff.filter(e=>compaRatio(e)<0.9 && e.perf>=4.0);
+    const budget=headcountBudget(id);
+    if(avgCompa<0.92){
+      out.push({dept:dept.name,type:'Pay-equity risk',severity:'High',
+        text:`${dept.name} runs ${Math.round((1-avgCompa)*100)}% below the simulated market rate on average across ${staff.length} roles.`,
+        action:`Scope an off-cycle market adjustment for ${dept.name}, prioritizing the ${belowMarketHighPerf.length} high performers flagged below market.`});
+    } else if(belowMarketHighPerf.length>=3){
+      out.push({dept:dept.name,type:'Retention risk',severity:'Medium',
+        text:`${belowMarketHighPerf.length} high performers in ${dept.name} are paid below the simulated market rate (compa-ratio &lt; 0.90).`,
+        action:`Review individual comp for these ${belowMarketHighPerf.length} employees ahead of the next cycle.`});
+    }
+    if(budget.variance>4){
+      out.push({dept:dept.name,type:'Budget risk',severity:'Medium',
+        text:`${dept.name} is running ${budget.variance} headcount over the simulated budget (${budget.actual} actual vs. ${budget.budgeted} budgeted).`,
+        action:`Flag to Finance for the next headcount review; confirm whether backfills are pre-approved.`});
+    } else if(budget.variance<-4){
+      out.push({dept:dept.name,type:'Capacity risk',severity:'Low',
+        text:`${dept.name} is running ${Math.abs(budget.variance)} headcount under the simulated budget (${budget.actual} actual vs. ${budget.budgeted} budgeted).`,
+        action:`Confirm with the department leader whether open budget should convert to active requisitions.`});
+    }
+  });
+  const order={High:0,Medium:1,Low:2};
+  return out.sort((a,b)=>order[a.severity]-order[b.severity]);
+}
+
 function managerAgg(mgr){
   const team=employees.filter(e=>e.managerId===mgr.id);
   return {
@@ -638,14 +781,16 @@ const state={
   agentTaskDone:{},
   orgDiagRuns:{},
   orgDiagBusy:false,
+  alertDrafts:{},
+  assistMode:'data',
 };
 function rangeSlice(arr){return arr.slice(arr.length-Math.min(state.range,arr.length));}
 function rangeMonths(){return rangeSlice(MONTHS);}
 
 const SECTIONS={
   manager:[['overview','Overview'],['roster','Team Roster'],['pulse','Pulse Trends'],['amplifier','Amplifier']],
-  hrbp:[['overview','Overview'],['benchmark','Benchmarking'],['attrition','Attrition Watch'],['coaching','Coaching Queue'],['ertracker','ER Tracker'],['orgdiag','Org Diagnostics'],['agent','Automation Agent'],['reports','Exec Reports']],
-  people:[['overview','Company Overview'],['performance','Performance & Ranking'],['workforce','Workforce Planner'],['talent','Talent Planning'],['succession','Succession Planning'],['attrition','Attrition Trends'],['exit','Exit Interviews'],['ertracker','ER Tracker'],['orgdiag','Org Diagnostics'],['integrations','HRIS Integrations'],['architecture','Data Architecture'],['reports','Exec Reports']],
+  hrbp:[['overview','Overview'],['benchmark','Benchmarking'],['attrition','Attrition Watch'],['coaching','Coaching Queue'],['comp','Comp & Benefits'],['ertracker','ER Tracker'],['orgdiag','Org Diagnostics'],['alerts','Alert Center'],['agent','Automation Agent'],['reports','Exec Reports']],
+  people:[['overview','Company Overview'],['performance','Performance & Ranking'],['workforce','Workforce Planner'],['talent','Talent Planning'],['succession','Succession Planning'],['attrition','Attrition Trends'],['exit','Exit Interviews'],['comp','Comp & Benefits'],['ertracker','ER Tracker'],['orgdiag','Org Diagnostics'],['alerts','Alert Center'],['integrations','HRIS Integrations'],['architecture','Data Architecture'],['reports','Exec Reports']],
 };
 const ROLE_META={
   manager:{label:'Manager / Partner', icon:'👤'},
@@ -676,6 +821,145 @@ function deltaEl(delta,{goodIsUp=true,suffix='',label='vs prior',flatLabel='flat
 function barCell(value,max,color){
   const pct=clamp(value/max*100,0,100);
   return `<div class="bar-cell"><div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div><span class="tabular" style="min-width:30px">${value}</span></div>`;
+}
+
+/* ---- drill-down link helpers: wrap a name/dept in a clickable span ---- */
+function empLink(id,label){ return `<span class="drill-link" data-emp="${id}">${esc(label)}</span>`; }
+function mgrLink(id,label){ return `<span class="drill-link" data-mgr="${id}">${esc(label)}</span>`; }
+function deptLinkFn(id,label){ return `<span class="drill-link" data-dept="${id}">${esc(label)}</span>`; }
+function caseLink(id,label){ return `<span class="drill-link" data-case="${id}">${esc(label)}</span>`; }
+
+/* ================================================================
+   DRILL-DOWN DETAIL MODAL
+   ================================================================ */
+function openModal(title,sub,bodyHtml){
+  document.getElementById('modal-title').textContent=title;
+  document.getElementById('modal-sub').textContent=sub||'';
+  document.getElementById('modal-body').innerHTML=bodyHtml;
+  document.getElementById('modal-backdrop').classList.add('open');
+}
+function closeModal(){ document.getElementById('modal-backdrop').classList.remove('open'); }
+
+function openEmployeeDetail(id){
+  const e=empById[id]; if(!e) return;
+  const mgr=empById[e.managerId];
+  const hrbp=HRBPS.find(h=>h.id===e.hrbpId);
+  const dept=DEPTS.find(d=>d.id===e.deptId);
+  const body=`
+    <div class="modal-kpi-row">
+      <div class="modal-kpi"><div class="label">Performance</div><div class="value">${e.perf} / 5.0</div></div>
+      <div class="modal-kpi"><div class="label">Engagement</div><div class="value">${e.engagement} / 100</div></div>
+      <div class="modal-kpi"><div class="label">Potential</div><div class="value">${e.potential!=null?e.potential+' / 100':'—'}</div></div>
+      <div class="modal-kpi"><div class="label">Attrition risk</div><div class="value">${e.attritionRisk}</div></div>
+    </div>
+    <div class="table-wrap"><table>
+      <tbody>
+        <tr><td class="subtle">Title</td><td>${esc(e.title)}</td></tr>
+        <tr><td class="subtle">Department</td><td>${deptLinkFn(dept.id,dept.name)}</td></tr>
+        <tr><td class="subtle">Manager</td><td>${mgr?mgrLink(mgr.id,mgr.name):'—'}</td></tr>
+        <tr><td class="subtle">HRBP</td><td>${esc(hrbp.name)}</td></tr>
+        <tr><td class="subtle">Location</td><td>${esc(e.location)}</td></tr>
+        <tr><td class="subtle">Tenure</td><td>${(e.tenureMonths/12).toFixed(1)} years (since ${esc(e.hireDate)})</td></tr>
+        <tr><td class="subtle">Performance band</td><td>${perfPill(e.perfBand)}</td></tr>
+        <tr><td class="subtle">Attrition risk band</td><td>${riskPill(e.riskBand,e.attritionRisk)}</td></tr>
+        <tr><td class="subtle">Performance trend</td><td>${deltaEl(e.perfTrendDelta,{suffix:' pts'})}</td></tr>
+        <tr><td class="subtle">Engagement trend</td><td>${deltaEl(e.engagementTrendDelta,{suffix:' pts'})}</td></tr>
+        ${e.competencyScores?`<tr><td class="subtle">Avg. competency</td><td>${avgCompetency(e)} / 5.0</td></tr>`:''}
+        ${e.lmsCompletionPct!=null?`<tr><td class="subtle">LMS completion</td><td>${barCell(e.lmsCompletionPct,100,'var(--accent)')}</td></tr>`:''}
+      </tbody>
+    </table></div>
+    ${!e.isManager&&!e.isDirector&&e.competencyScores?(()=>{const r=promotionReadiness(e); return `
+    <div class="card-head" style="margin-top:14px"><h3 style="font-size:13.5px">Competencies</h3></div>
+    <div class="table-wrap"><table><tbody>${COMPETENCIES.map((c,i)=>`<tr><td class="subtle">${esc(c)}</td><td>${barCell(e.competencyScores[i],5,'var(--accent)')}</td></tr>`).join('')}</tbody></table></div>
+    ${r.next?`<p class="hint" style="margin-top:10px">Level ${esc(e.level)} → ${esc(r.next.id)} (${esc(r.next.title)}): ${r.status==='Ready now'?'<strong style="color:var(--good)">ready now</strong>':r.status==='Ready 1–2 cycles'?'<strong style="color:var(--warning)">ready in 1–2 cycles</strong>':'<strong>developing</strong>'} — competency gap ${r.compGap}, LMS gap ${r.lmsGap} pts.</p>`:''}
+    `;})():''}
+    <p class="hint" style="margin-top:12px">Illustrative simulated profile — part of this workspace's demo dataset.</p>`;
+  openModal(e.name, e.title+' · '+dept.name, body);
+}
+function openManagerDetail(id){
+  const m=empById[id]; if(!m) return;
+  const agg=managerAgg(m);
+  const dept=DEPTS.find(d=>d.id===m.deptId);
+  const hrbp=HRBPS.find(h=>h.id===m.hrbpId);
+  const body=`
+    <div class="modal-kpi-row">
+      <div class="modal-kpi"><div class="label">Team size</div><div class="value">${agg.headcount}</div></div>
+      <div class="modal-kpi"><div class="label">Avg. performance</div><div class="value">${agg.avgPerf}</div></div>
+      <div class="modal-kpi"><div class="label">Avg. engagement</div><div class="value">${agg.avgEngagement}</div></div>
+      <div class="modal-kpi"><div class="label">Attrition (12mo)</div><div class="value">${m.attritionRate12mo}%</div></div>
+    </div>
+    <div class="table-wrap"><table>
+      <tbody>
+        <tr><td class="subtle">Department</td><td>${deptLinkFn(dept.id,dept.name)}</td></tr>
+        <tr><td class="subtle">HRBP</td><td>${esc(hrbp.name)}</td></tr>
+        <tr><td class="subtle">Tenure as manager</td><td>${(m.tenureMonths/12).toFixed(1)} years</td></tr>
+        <tr><td class="subtle">High / elevated risk reports</td><td>${agg.highRisk} high · ${agg.elevatedRisk} elevated</td></tr>
+        <tr><td class="subtle">Span of control</td><td>${m.spanOfControl!=null?m.spanOfControl:agg.headcount}</td></tr>
+        <tr><td class="subtle">Workload pressure (proxy)</td><td>${m.workloadPressureProxy!=null?m.workloadPressureProxy+' / 100':'—'}</td></tr>
+      </tbody>
+    </table></div>
+    <div class="card-head" style="margin-top:14px"><h3 style="font-size:13.5px">Team roster</h3></div>
+    ${rosterTable(agg.team.slice().sort((a,b)=>b.attritionRisk-a.attritionRisk))}`;
+  openModal(m.name, 'Manager, '+dept.name, body);
+}
+function openDeptDetail(id){
+  const d=deptAgg.find(x=>x.id===id); if(!d) return;
+  const mgrs=managersFull.filter(m=>m.deptId===id);
+  const body=`
+    <div class="modal-kpi-row">
+      <div class="modal-kpi"><div class="label">Headcount</div><div class="value">${d.headcount}</div></div>
+      <div class="modal-kpi"><div class="label">Avg. performance</div><div class="value">${d.avgPerf}</div></div>
+      <div class="modal-kpi"><div class="label">Avg. engagement</div><div class="value">${d.avgEngagement}</div></div>
+      <div class="modal-kpi"><div class="label">Attrition (annualized)</div><div class="value">${round1(d.attritionRate)}%</div></div>
+    </div>
+    <div class="card-head"><h3 style="font-size:13.5px">Managers in ${esc(d.name)}</h3></div>
+    <div class="table-wrap"><table><thead><tr><th>Manager</th><th>Team</th><th>Performance</th><th>Engagement</th><th>Risk</th></tr></thead>
+    <tbody>${mgrs.map(m=>{const agg=managerAgg(m); return `<tr>
+      <td class="name">${mgrLink(m.id,m.name)}</td><td class="tabular">${agg.headcount}</td>
+      <td>${barCell(agg.avgPerf,5,'var(--accent)')}</td><td>${barCell(agg.avgEngagement,100,'var(--accent)')}</td>
+      <td>${agg.highRisk?riskPill('High',agg.highRisk):(agg.elevatedRisk?riskPill('Elevated',agg.elevatedRisk):riskPill('Low',null))}</td>
+    </tr>`;}).join('')}</tbody></table></div>`;
+  openModal(d.name, `${DEPTS.length} departments company-wide`, body);
+}
+function openCaseDetail(id){
+  const c=ER_CASES.find(x=>x.id===id); if(!c) return;
+  const statusPillFn=s=>s==='Breached'?'<span class="pill critical"><span class="pdot"></span>Breached</span>'
+    :s==='At risk'?'<span class="pill warning"><span class="pdot"></span>At risk</span>'
+    :s==='Closed'?'<span class="pill neutral">Closed</span>'
+    :'<span class="pill good"><span class="pdot"></span>On track</span>';
+  const body=`
+    <div class="modal-kpi-row">
+      <div class="modal-kpi"><div class="label">Stage</div><div class="value" style="font-size:15px">${esc(c.stage)}</div></div>
+      <div class="modal-kpi"><div class="label">SLA status</div><div class="value" style="font-size:15px">${statusPillFn(c.status)}</div></div>
+      <div class="modal-kpi"><div class="label">Days remaining</div><div class="value">${c.daysRemaining}</div></div>
+    </div>
+    <div class="table-wrap"><table>
+      <tbody>
+        <tr><td class="subtle">Category</td><td>${esc(c.category)}</td></tr>
+        <tr><td class="subtle">Recurring theme</td><td><span class="pill neutral">${esc(c.theme)}</span></td></tr>
+        <tr><td class="subtle">Department</td><td>${deptLinkFn(c.deptId,DEPTS.find(d=>d.id===c.deptId).name)}</td></tr>
+        <tr><td class="subtle">Opened</td><td>${esc(c.openedDate)}</td></tr>
+        <tr><td class="subtle">SLA due</td><td>${esc(c.dueDate)}</td></tr>
+      </tbody>
+    </table></div>
+    <div class="card-head" style="margin-top:14px"><h3 style="font-size:13.5px">SOP milestones</h3></div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      ${c.sopMilestones.map(s=>`<div class="risk-flag-row"><span class="pill ${s.done?'good':'neutral'}"><span class="pdot"></span>${s.done?'Done':'Pending'}</span> ${esc(s.name)}</div>`).join('')}
+    </div>
+    <p class="hint" style="margin-top:12px">De-identified by design — no individual names are stored on this case.</p>`;
+  openModal(c.id, esc(c.category), body);
+}
+
+function wireDrillDownDelegation(){
+  document.getElementById('main').addEventListener('click',(e)=>{
+    const emp=e.target.closest('[data-emp]'); if(emp){ openEmployeeDetail(emp.dataset.emp); return; }
+    const mgr=e.target.closest('[data-mgr]'); if(mgr){ openManagerDetail(mgr.dataset.mgr); return; }
+    const dept=e.target.closest('[data-dept]'); if(dept){ openDeptDetail(dept.dataset.dept); return; }
+    const kase=e.target.closest('[data-case]'); if(kase){ openCaseDetail(kase.dataset.case); return; }
+    const nav=e.target.closest('[data-nav]'); if(nav){ state.section=nav.dataset.nav; renderAll(); return; }
+  });
+  document.getElementById('modal-close').addEventListener('click',closeModal);
+  document.getElementById('modal-backdrop').addEventListener('click',(e)=>{ if(e.target.id==='modal-backdrop') closeModal(); });
 }
 
 /* Chart.js instance registry — destroyed on every re-render */
@@ -753,6 +1037,8 @@ function railIcon(name){
     ertracker:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.6 2.7 17a1.8 1.8 0 0 0 1.6 2.7h15.4a1.8 1.8 0 0 0 1.6-2.7L13.7 3.6a1.8 1.8 0 0 0-3.4 0Z"/></svg>',
     orgdiag:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="2.2"/><circle cx="5" cy="19" r="2.2"/><circle cx="19" cy="19" r="2.2"/><path d="M12 7.2V12M12 12 6.3 17M12 12l5.7 5"/></svg>',
     workforce:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="4" width="19" height="14" rx="1.6"/><path d="M2.5 9h19M8 4v14"/></svg>',
+    comp:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9.2"/><path d="M12 7v10M14.8 9.3c0-1.3-1.3-2.1-2.8-2.1-1.7 0-2.9.9-2.9 2.1 0 3 5.7 1.5 5.7 4.4 0 1.3-1.3 2.2-2.9 2.2s-2.9-.8-2.9-2.1"/></svg>',
+    alerts:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a6 6 0 0 0-6 6c0 4.5-1.5 6-2.5 7h17c-1-1-2.5-2.5-2.5-7a6 6 0 0 0-6-6Z"/><path d="M9.5 20.5a2.5 2.5 0 0 0 5 0"/></svg>',
   };
   return icons[name]||'';
 }
@@ -795,8 +1081,9 @@ function renderShell(){
   </div>`;
 
   document.querySelectorAll('.persona-btn').forEach(b=>b.addEventListener('click',()=>{
-    state.role=b.dataset.role; state.section=SECTIONS[state.role][0][0]; renderAll();
+    state.role=b.dataset.role; state.section=SECTIONS[state.role][0][0]; renderAll(); closeRail();
   }));
+  document.getElementById('rail-backdrop').addEventListener('click',closeRail);
 }
 
 function renderPersonaContext(){
@@ -819,7 +1106,7 @@ function renderNav(){
   nav.innerHTML=SECTIONS[state.role].map(([id,label])=>`
     <button class="nav-item ${state.section===id?'active':''}" data-sec="${id}">${railIcon(id)}${label}</button>
   `).join('');
-  nav.querySelectorAll('.nav-item').forEach(b=>b.addEventListener('click',()=>{state.section=b.dataset.sec; renderAll();}));
+  nav.querySelectorAll('.nav-item').forEach(b=>b.addEventListener('click',()=>{state.section=b.dataset.sec; renderAll(); closeRail();}));
 }
 
 function topbarTitle(){
@@ -832,7 +1119,12 @@ function renderTopbar(){
   const [title,sub]=topbarTitle();
   const tb=document.getElementById('topbar');
   tb.innerHTML=`
-    <div><h1>${esc(title)}</h1><div class="sub">${esc(sub)}</div></div>
+    <div class="topbar-main">
+      <button class="rail-toggle" id="rail-toggle" aria-label="Open menu">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+      </button>
+      <div><h1>${esc(title)}</h1><div class="sub">${esc(sub)}</div></div>
+    </div>
     <div class="topbar-actions">
       <select class="range-select" id="range-select">
         <option value="3" ${state.range==3?'selected':''}>Last 3 months</option>
@@ -843,7 +1135,10 @@ function renderTopbar(){
     </div>`;
   document.getElementById('range-select').addEventListener('change',e=>{state.range=+e.target.value; renderAll();});
   document.getElementById('ask-btn').addEventListener('click',openAssistant);
+  document.getElementById('rail-toggle').addEventListener('click',openRail);
 }
+function openRail(){ document.getElementById('rail').classList.add('open'); document.getElementById('rail-backdrop').classList.add('open'); }
+function closeRail(){ document.getElementById('rail').classList.remove('open'); document.getElementById('rail-backdrop').classList.remove('open'); }
 
 /* ================================================================
    6. RENDER: SECTIONS
@@ -872,7 +1167,7 @@ SECTION_RENDERERS['manager:overview']=function(){
     <div class="kpi"><div class="label">Team size</div><div class="value">${agg.headcount}<span class="unit">people</span></div><div class="subtle">${esc(dept.name)}</div></div>
     <div class="kpi"><div class="label">Avg. performance</div><div class="value">${agg.avgPerf}<span class="unit">/ 5.0</span></div>${deltaEl(mgr.perfTrendDelta,{suffix:' pts'})}</div>
     <div class="kpi"><div class="label">Avg. engagement</div><div class="value">${agg.avgEngagement}<span class="unit">/ 100</span></div>${deltaEl(mgr.engagementSpark[mgr.engagementSpark.length-1]-mgr.engagementSpark[0],{suffix:' pts'})}</div>
-    <div class="kpi"><div class="label">Attrition risk flags</div><div class="value" style="color:${agg.highRisk?'var(--critical)':'var(--ink-900)'}">${agg.highRisk+agg.elevatedRisk}<span class="unit">of ${agg.headcount}</span></div><div class="subtle">${agg.highRisk} high · ${agg.elevatedRisk} elevated</div></div>
+    <div class="kpi kpi-link" data-nav="roster"><div class="label">Attrition risk flags</div><div class="value" style="color:${agg.highRisk?'var(--critical)':'var(--ink-900)'}">${agg.highRisk+agg.elevatedRisk}<span class="unit">of ${agg.headcount}</span></div><div class="subtle">${agg.highRisk} high · ${agg.elevatedRisk} elevated — view roster →</div></div>
   </div>
   <div class="grid2">
     <div class="card">
@@ -896,6 +1191,18 @@ SECTION_RENDERERS['manager:overview']=function(){
   <div class="card">
     <div class="card-head"><h3>How you compare</h3><span class="hint">Other managers in ${esc(dept.name)}</span></div>
     ${peerManagerTable(mgr)}
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Team comp snapshot</h3><span class="hint">Internal pay vs. simulated market rate</span></div>
+    ${(()=>{
+      const compa=round1(avg(agg.team.map(compaRatio)));
+      const below=agg.team.filter(e=>compaRatio(e)<0.9);
+      return `<div class="kpi-row" style="grid-template-columns:repeat(2,1fr)">
+        <div class="kpi"><div class="label">Avg. compa-ratio</div><div class="value" style="color:${compa<0.95?'var(--critical)':'var(--ink-900)'}">${compa}</div></div>
+        <div class="kpi"><div class="label">Below-market</div><div class="value">${below.length}<span class="unit">of ${agg.headcount}</span></div></div>
+      </div>
+      ${below.length?`<p class="hint" style="margin-top:10px">${below.map(e=>empLink(e.id,e.name)).join(', ')} — flagged below the simulated market rate for their level. See the full Comp &amp; Benefits analyzer with your HRBP.</p>`:'<p class="hint" style="margin-top:10px">No one on your team is flagged below the simulated market rate.</p>'}`;
+    })()}
   </div>`;
 };
 function peerManagerTable(mgr){
@@ -906,7 +1213,7 @@ function peerManagerTable(mgr){
     <tbody>${peers.map(m=>{
       const agg=managerAgg(m); const isYou=m.id===mgr.id;
       return `<tr style="${isYou?'background:var(--accent-soft)':''}">
-        <td class="name">${esc(m.name)}${isYou?' <span class="pill neutral">You</span>':''}</td>
+        <td class="name">${mgrLink(m.id,m.name)}${isYou?' <span class="pill neutral">You</span>':''}</td>
         <td class="tabular">${agg.headcount}</td>
         <td>${barCell(agg.avgPerf,5,agg.avgPerf<companyAvgPerf?'var(--serious)':'var(--accent)')}</td>
         <td>${barCell(agg.avgEngagement,100,agg.avgEngagement<companyAvgEngagement?'var(--serious)':'var(--accent)')}</td>
@@ -921,7 +1228,7 @@ function rosterTable(list, opts={}){
     <thead><tr><th>Name</th><th>Title</th><th>Tenure</th><th>Performance</th><th>Engagement</th><th>Attrition risk</th></tr></thead>
     <tbody>${list.map(e=>`
       <tr>
-        <td class="name">${esc(e.name)}</td>
+        <td class="name">${empLink(e.id,e.name)}</td>
         <td>${esc(e.title)}</td>
         <td class="tabular">${(e.tenureMonths/12).toFixed(1)} yr</td>
         <td>${perfPill(e.perfBand)} <span class="subtle tabular">${e.perf}</span></td>
@@ -995,7 +1302,7 @@ SECTION_RENDERERS['hrbp:overview']=function(){
     <div class="kpi"><div class="label">Client group size</div><div class="value">${staff.length}<span class="unit">people</span></div><div class="subtle">${mgrs.length} managers across ${hrbpDepts().length} dept${hrbpDepts().length>1?'s':''}</div></div>
     <div class="kpi"><div class="label">Avg. performance</div><div class="value">${avgPerf}<span class="unit">/ 5.0</span></div>${deltaEl(avgPerf-companyAvgPerf,{label:'vs company',flatLabel:'in line with company'})}</div>
     <div class="kpi"><div class="label">Avg. engagement</div><div class="value">${avgEng}<span class="unit">/ 100</span></div>${deltaEl(avgEng-companyAvgEngagement,{label:'vs company',flatLabel:'in line with company'})}</div>
-    <div class="kpi"><div class="label">At-risk headcount</div><div class="value" style="color:${high?'var(--critical)':'var(--ink-900)'}">${high+elev}<span class="unit">of ${staff.length}</span></div><div class="subtle">${high} high · ${elev} elevated</div></div>
+    <div class="kpi kpi-link" data-nav="attrition"><div class="label">At-risk headcount</div><div class="value" style="color:${high?'var(--critical)':'var(--ink-900)'}">${high+elev}<span class="unit">of ${staff.length}</span></div><div class="subtle">${high} high · ${elev} elevated — view watch list →</div></div>
   </div>
   <div class="grid2">
     <div class="card">
@@ -1023,8 +1330,8 @@ SECTION_RENDERERS['hrbp:benchmark']=function(){
       <thead><tr><th>Manager</th><th>Dept</th><th>Team</th><th>Avg. performance</th><th>Avg. engagement</th><th>Risk flags</th></tr></thead>
       <tbody>${mgrs.map(({m,agg})=>`
         <tr>
-          <td class="name">${esc(m.name)}</td>
-          <td>${esc(DEPTS.find(d=>d.id===m.deptId).name)}</td>
+          <td class="name">${mgrLink(m.id,m.name)}</td>
+          <td>${deptLinkFn(m.deptId,DEPTS.find(d=>d.id===m.deptId).name)}</td>
           <td class="tabular">${agg.headcount}</td>
           <td>${barCell(agg.avgPerf,5,agg.avgPerf<companyAvgPerf?'var(--serious)':'var(--accent)')}</td>
           <td>${barCell(agg.avgEngagement,100,agg.avgEngagement<companyAvgEngagement?'var(--serious)':'var(--accent)')}</td>
@@ -1049,8 +1356,8 @@ SECTION_RENDERERS['hrbp:attrition']=function(){
         const co=companyAttritionRate;
         const worse=m.attritionRate12mo>co;
         return `<tr>
-          <td class="name">${esc(m.name)}</td>
-          <td>${esc(DEPTS.find(d=>d.id===m.deptId).name)}</td>
+          <td class="name">${mgrLink(m.id,m.name)}</td>
+          <td>${deptLinkFn(m.deptId,DEPTS.find(d=>d.id===m.deptId).name)}</td>
           <td class="tabular">${managerAgg(m).headcount}</td>
           <td style="width:110px"><div class="chart-box" style="height:32px"><canvas id="spark-${m.id}"></canvas></div></td>
           <td class="tabular">${m.attritionRate12mo}%</td>
@@ -1238,7 +1545,7 @@ SECTION_RENDERERS['people:overview']=function(){
     <div class="kpi"><div class="label">Total headcount</div><div class="value">${TOTAL_HC}<span class="unit">people</span></div><div class="subtle">${DEPTS.length} departments</div></div>
     <div class="kpi"><div class="label">Company avg. performance</div><div class="value">${companyAvgPerf}<span class="unit">/ 5.0</span></div></div>
     <div class="kpi"><div class="label">Company avg. engagement</div><div class="value">${companyAvgEngagement}<span class="unit">/ 100</span></div>${deltaEl(companyEngagementSeries[11]-companyEngagementSeries[0],{suffix:' pts YTD'})}</div>
-    <div class="kpi"><div class="label">Attrition rate (annualized est.)</div><div class="value">${companyAttritionRate}<span class="unit">%</span></div>${deltaEl(companyAttritionRate-companyAttritionRatePrev,{goodIsUp:false,suffix:' pts'})}</div>
+    <div class="kpi kpi-link" data-nav="attrition"><div class="label">Attrition rate (annualized est.)</div><div class="value">${companyAttritionRate}<span class="unit">%</span></div>${deltaEl(companyAttritionRate-companyAttritionRatePrev,{goodIsUp:false,suffix:' pts'})}</div>
   </div>
   <div class="grid2">
     <div class="card">
@@ -1256,7 +1563,7 @@ SECTION_RENDERERS['people:overview']=function(){
       <thead><tr><th>Department</th><th>Headcount</th><th>Avg. performance</th><th>Avg. engagement</th><th>High risk</th><th>Attrition (annualized)</th></tr></thead>
       <tbody>${deptAgg.map(d=>`
         <tr>
-          <td class="name"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${d.color};margin-right:7px"></span>${esc(d.name)}</td>
+          <td class="name"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${d.color};margin-right:7px"></span>${deptLinkFn(d.id,d.name)}</td>
           <td class="tabular">${d.headcount}</td>
           <td>${barCell(d.avgPerf,5,'var(--accent)')}</td>
           <td>${barCell(d.avgEngagement,100,'var(--accent)')}</td>
@@ -1307,8 +1614,8 @@ SECTION_RENDERERS['people:performance']=function(){
     <tbody>${scored.map((s,i)=>`
       <tr>
         <td class="tabular subtle">${i+1}</td>
-        <td class="name">${esc(s.m.name)}</td>
-        <td>${esc(DEPTS.find(d=>d.id===s.m.deptId).name)}</td>
+        <td class="name">${mgrLink(s.m.id,s.m.name)}</td>
+        <td>${deptLinkFn(s.m.deptId,DEPTS.find(d=>d.id===s.m.deptId).name)}</td>
         <td class="tabular">${s.agg.headcount}</td>
         <td>${barCell(s.score,100,s.score>=70?'var(--good)':(s.score>=50?'var(--accent)':'var(--serious)'))}</td>
         <td class="tabular">${s.agg.avgPerf}</td>
@@ -1353,7 +1660,7 @@ function ninebox(grid,total){
 }
 function rankTable(list,isTop){
   return `<div class="table-wrap"><table><thead><tr><th>#</th><th>Name</th><th>Dept</th><th>Manager</th><th>Score</th></tr></thead>
-  <tbody>${list.map((e,i)=>`<tr><td class="tabular subtle">${i+1}</td><td class="name">${esc(e.name)}</td><td>${esc(DEPTS.find(d=>d.id===e.deptId).name)}</td><td>${esc(empById[e.managerId]?empById[e.managerId].name:'—')}</td><td>${perfPill(e.perfBand)} <span class="tabular subtle">${e.perf}</span></td></tr>`).join('')}</tbody></table></div>`;
+  <tbody>${list.map((e,i)=>`<tr><td class="tabular subtle">${i+1}</td><td class="name">${empLink(e.id,e.name)}</td><td>${deptLinkFn(e.deptId,DEPTS.find(d=>d.id===e.deptId).name)}</td><td>${empById[e.managerId]?mgrLink(e.managerId,empById[e.managerId].name):'—'}</td><td>${perfPill(e.perfBand)} <span class="tabular subtle">${e.perf}</span></td></tr>`).join('')}</tbody></table></div>`;
 }
 
 /* ---------- PEOPLE TEAM: Workforce Planner (HR + C-suite) ---------- */
@@ -1379,7 +1686,7 @@ SECTION_RENDERERS['people:workforce']=function(){
     <div class="card-head"><h3>Competency map</h3><span class="hint">Avg. proficiency, 1–5 scale, by department</span></div>
     <div class="table-wrap"><table><thead><tr><th>Department</th>${COMPETENCIES.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead>
     <tbody>${competencyMatrix.map(row=>`
-      <tr><td class="name">${esc(row.name)}</td>${row.scores.map(s=>`<td style="background:${seqColor(s)};text-align:center;font-weight:700;color:var(--ink-900)">${s}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+      <tr><td class="name">${deptLinkFn(row.deptId,row.name)}</td>${row.scores.map(s=>`<td style="background:${seqColor(s)};text-align:center;font-weight:700;color:var(--ink-900)">${s}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
     <div class="legend"><div class="item"><span class="swatch" style="background:${seqColor(1)}"></span>1 · developing</div><div class="item"><span class="swatch" style="background:${seqColor(3)}"></span>3 · solid</div><div class="item"><span class="swatch" style="background:${seqColor(5)}"></span>5 · deep bench</div></div>
   </div>
   <div class="card">
@@ -1390,7 +1697,7 @@ SECTION_RENDERERS['people:workforce']=function(){
     <div class="card-head"><h3>Coverage detail</h3></div>
     <div class="table-wrap"><table><thead><tr><th>Department</th><th>Manager roles</th><th>Covered</th><th>Bench strength</th></tr></thead>
     <tbody>${bench.map(b=>`
-      <tr><td class="name">${esc(b.name)}</td><td class="tabular">${b.roles}</td><td class="tabular">${b.covered}</td>
+      <tr><td class="name">${deptLinkFn(b.deptId,b.name)}</td><td class="tabular">${b.roles}</td><td class="tabular">${b.covered}</td>
       <td>${barCell(b.pct,100,b.pct>=70?'var(--good)':(b.pct>=40?'var(--warning)':'var(--critical)'))}</td></tr>`).join('')}</tbody></table></div>
   </div>`;
 };
@@ -1407,11 +1714,12 @@ function successionCandidates(mgr){
 SECTION_RENDERERS['people:talent']=function(){
   const nonMgr=employees.filter(e=>!e.isDirector&&!e.isManager);
   const highPotential=nonMgr.filter(e=>e.potential>=70).sort((a,b)=>b.potential-a.potential);
-  const readyForPromo=nonMgr.filter(e=>e.potential>=75 && e.perf>=4.0 && e.tenureMonths>=12);
+  const readiness=nonMgr.map(e=>({e,r:promotionReadiness(e)}));
+  const readyNow=readiness.filter(x=>x.r.status==='Ready now');
   return `
   <div class="kpi-row">
     <div class="kpi"><div class="label">High-potential talent</div><div class="value">${highPotential.length}<span class="unit">of ${nonMgr.length}</span></div><div class="subtle">${round1(highPotential.length/nonMgr.length*100)}% of individual contributors</div></div>
-    <div class="kpi"><div class="label">Ready for promotion</div><div class="value">${readyForPromo.length}<span class="unit">people</span></div><div class="subtle">High performance + high potential + 12mo+ tenure</div></div>
+    <div class="kpi"><div class="label">Ready for promotion now</div><div class="value">${readyNow.length}<span class="unit">people</span></div><div class="subtle">Meets next-level competency, LMS &amp; performance bar</div></div>
     <div class="kpi"><div class="label">Avg. potential score</div><div class="value">${Math.round(avg(nonMgr.map(e=>e.potential)))}<span class="unit">/ 100</span></div></div>
   </div>
   <div class="card">
@@ -1422,10 +1730,24 @@ SECTION_RENDERERS['people:talent']=function(){
     <div class="card-head"><h3>High-potential roster</h3><span class="hint">Potential score ≥ 70, top 15</span></div>
     <div class="table-wrap"><table><thead><tr><th>Name</th><th>Title</th><th>Dept</th><th>Manager</th><th>Performance</th><th>Potential</th></tr></thead>
     <tbody>${highPotential.slice(0,15).map(e=>`
-      <tr><td class="name">${esc(e.name)}</td><td>${esc(e.title)}</td><td>${esc(DEPTS.find(d=>d.id===e.deptId).name)}</td>
-      <td>${esc(empById[e.managerId]?empById[e.managerId].name:'—')}</td>
+      <tr><td class="name">${empLink(e.id,e.name)}</td><td>${esc(e.title)}</td><td>${deptLinkFn(e.deptId,DEPTS.find(d=>d.id===e.deptId).name)}</td>
+      <td>${empById[e.managerId]?mgrLink(e.managerId,empById[e.managerId].name):'—'}</td>
       <td>${perfPill(e.perfBand)}</td>
       <td>${barCell(e.potential,100,'var(--accent)')}</td></tr>`).join('')}</tbody></table></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Job levels &amp; leveling framework</h3><span class="hint">IC track · minimums to be considered ready</span></div>
+    <div class="table-wrap"><table><thead><tr><th>Level</th><th>Title</th><th>Min. competency</th><th>Min. LMS completion</th><th>What it looks like</th></tr></thead>
+    <tbody>${LEVELS.map(l=>`<tr><td class="name">${esc(l.id)}</td><td>${esc(l.title)}</td><td class="tabular">${l.minCompetency} / 5.0</td><td class="tabular">${l.minLms}%</td><td class="subtle">${esc(l.blurb)}</td></tr>`).join('')}</tbody></table></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Promotion readiness &amp; competency gaps</h3><span class="hint">Competency scores from the analyzer · completion from the LMS feed</span></div>
+    <div class="table-wrap"><table><thead><tr><th>Name</th><th>Current level</th><th>Next level</th><th>Competency</th><th>LMS completion</th><th>Readiness</th></tr></thead>
+    <tbody>${readiness.filter(x=>x.r.next).sort((a,b)=>(a.r.compGap+a.r.lmsGap/20)-(b.r.compGap+b.r.lmsGap/20)).slice(0,15).map(({e,r})=>`
+      <tr><td class="name">${empLink(e.id,e.name)}</td><td>${esc(e.level)}</td><td>${esc(r.next.id)} · ${esc(r.next.title)}</td>
+      <td>${barCell(avgCompetency(e),5,avgCompetency(e)>=r.next.minCompetency?'var(--good)':'var(--accent)')}</td>
+      <td>${barCell(e.lmsCompletionPct,100,e.lmsCompletionPct>=r.next.minLms?'var(--good)':'var(--accent)')}</td>
+      <td>${r.status==='Ready now'?'<span class="pill good"><span class="pdot"></span>Ready now</span>':r.status==='Ready 1–2 cycles'?'<span class="pill warning"><span class="pdot"></span>Ready 1–2 cycles</span>':'<span class="pill neutral">Developing</span>'}</td></tr>`).join('')}</tbody></table></div>
   </div>`;
 };
 
@@ -1444,10 +1766,10 @@ SECTION_RENDERERS['people:succession']=function(){
     <div class="card-head"><h3>Succession bench — by manager role</h3><span class="hint">Up to 2 candidates per role, from within the same department</span></div>
     <div class="table-wrap"><table><thead><tr><th>Role (incumbent)</th><th>Incumbent risk</th><th>Candidate</th><th>Readiness</th></tr></thead>
     <tbody>${rows.map(r=>{
-      if(!r.candidates.length) return `<tr><td class="name">${esc(r.m.name)} <span class="subtle">— ${esc(DEPTS.find(d=>d.id===r.m.deptId).name)}</span></td><td>${riskPill(r.m.riskBand,null)}</td><td class="subtle" colspan="2">No candidate identified — coverage gap</td></tr>`;
+      if(!r.candidates.length) return `<tr><td class="name">${mgrLink(r.m.id,r.m.name)} <span class="subtle">— ${deptLinkFn(r.m.deptId,DEPTS.find(d=>d.id===r.m.deptId).name)}</span></td><td>${riskPill(r.m.riskBand,null)}</td><td class="subtle" colspan="2">No candidate identified — coverage gap</td></tr>`;
       return r.candidates.map((c,i)=>`<tr>
-        ${i===0?`<td class="name" rowspan="${r.candidates.length}">${esc(r.m.name)} <span class="subtle">— ${esc(DEPTS.find(d=>d.id===r.m.deptId).name)}</span></td><td rowspan="${r.candidates.length}">${riskPill(r.m.riskBand,null)}</td>`:''}
-        <td>${esc(c.emp.name)} <span class="subtle">· ${esc(c.emp.title)}</span></td>
+        ${i===0?`<td class="name" rowspan="${r.candidates.length}">${mgrLink(r.m.id,r.m.name)} <span class="subtle">— ${deptLinkFn(r.m.deptId,DEPTS.find(d=>d.id===r.m.deptId).name)}</span></td><td rowspan="${r.candidates.length}">${riskPill(r.m.riskBand,null)}</td>`:''}
+        <td>${empLink(c.emp.id,c.emp.name)} <span class="subtle">· ${esc(c.emp.title)}</span></td>
         <td>${c.readiness==='Ready now'?'<span class="pill good"><span class="pdot"></span>Ready now</span>':c.readiness==='Ready 1–2 yrs'?'<span class="pill warning"><span class="pdot"></span>Ready 1–2 yrs</span>':'<span class="pill neutral">Development needed</span>'}</td>
       </tr>`).join('');
     }).join('')}</tbody></table></div>
@@ -1469,7 +1791,7 @@ SECTION_RENDERERS['people:attrition']=function(){
     <div class="card-head"><h3>Highest attrition-risk managers</h3><span class="hint">Company-wide, ranked by flagged reports</span></div>
     <div class="table-wrap"><table><thead><tr><th>Manager</th><th>Dept</th><th>Team</th><th>High risk</th><th>Elevated</th><th>Trend</th></tr></thead>
     <tbody>${managersFull.slice().sort((a,b)=>managerAgg(b).highRisk-managerAgg(a).highRisk).slice(0,10).map(m=>{const agg=managerAgg(m);return `
-      <tr><td class="name">${esc(m.name)}</td><td>${esc(DEPTS.find(d=>d.id===m.deptId).name)}</td><td class="tabular">${agg.headcount}</td>
+      <tr><td class="name">${mgrLink(m.id,m.name)}</td><td>${deptLinkFn(m.deptId,DEPTS.find(d=>d.id===m.deptId).name)}</td><td class="tabular">${agg.headcount}</td>
       <td>${agg.highRisk?riskPill('High',agg.highRisk):'—'}</td><td>${agg.elevatedRisk||'—'}</td>
       <td style="width:100px"><div class="chart-box" style="height:30px"><canvas id="spark2-${m.id}"></canvas></div></td></tr>`;}).join('')}</tbody></table></div>
   </div>`;
@@ -1556,7 +1878,7 @@ function erTrackerSection(){
     <div class="table-wrap"><table><thead><tr><th>Case</th><th>Category</th><th>Theme</th><th>Stage</th><th>SLA status</th><th>SOP progress</th></tr></thead>
     <tbody>${cases.slice().sort((a,b)=>a.daysRemaining-b.daysRemaining).map(c=>{
       const done=c.sopMilestones.filter(s=>s.done).length;
-      return `<tr><td class="name">${c.id}</td><td>${esc(c.category)}</td><td><span class="pill neutral">${esc(c.theme)}</span></td><td>${esc(c.stage)}</td><td>${statusPill(c.status)}</td>
+      return `<tr><td class="name">${caseLink(c.id,c.id)}</td><td>${esc(c.category)}</td><td><span class="pill neutral">${esc(c.theme)}</span></td><td>${esc(c.stage)}</td><td>${statusPill(c.status)}</td>
       <td>${barCell(done,5,done===5?'var(--good)':'var(--accent)')}</td></tr>`;}).join('')}</tbody></table></div>
   </div>`;
 }
@@ -1588,8 +1910,8 @@ function orgDiagSection(){
     <div class="table-wrap"><table><thead><tr><th>Manager</th><th>Dept</th><th>Span</th><th>Workload pressure</th><th>Decision latency</th><th>Attrition (12mo)</th></tr></thead>
     <tbody>${mgrs.slice().sort((a,b)=>b.workloadPressureProxy-a.workloadPressureProxy).map(m=>`
       <tr>
-        <td class="name">${esc(m.name)}</td>
-        <td>${esc(DEPTS.find(d=>d.id===m.deptId).name)}</td>
+        <td class="name">${mgrLink(m.id,m.name)}</td>
+        <td>${deptLinkFn(m.deptId,DEPTS.find(d=>d.id===m.deptId).name)}</td>
         <td class="tabular" style="${m.spanOfControl>ORG_THRESHOLDS.span?'color:var(--critical);font-weight:700':''}">${m.spanOfControl}</td>
         <td>${barCell(m.workloadPressureProxy,100,m.workloadPressureProxy>=ORG_THRESHOLDS.workload?'var(--critical)':'var(--accent)')}</td>
         <td>${barCell(m.decisionLatencyProxy,100,m.decisionLatencyProxy>=ORG_THRESHOLDS.latency?'var(--critical)':'var(--accent)')}</td>
@@ -1655,6 +1977,146 @@ async function runOrgDiagnostic(){
 SECTION_RENDERERS['hrbp:orgdiag']=orgDiagSection;
 SECTION_RENDERERS['people:orgdiag']=orgDiagSection;
 
+/* ---------- SHARED: Comp & Benefits Analyzer (HRBP scoped + People Team company-wide) ---------- */
+function compScopeDeptIds(){
+  return state.role==='hrbp' ? hrbpDepts() : DEPTS.map(d=>d.id);
+}
+function compBenefitsSection(){
+  const deptIds=compScopeDeptIds();
+  const staff=employees.filter(e=>deptIds.includes(e.deptId));
+  const avgCompa=round1(avg(staff.map(compaRatio)));
+  const belowMarket=staff.filter(e=>compaRatio(e)<0.9);
+  const budgets=deptIds.map(id=>({dept:DEPTS.find(d=>d.id===id),...headcountBudget(id)}));
+  const totalVariance=budgets.reduce((s,b)=>s+b.variance,0);
+  const risks=compRisksAndActions(deptIds);
+  return `
+  <div class="section-title-wrap" style="margin-bottom:2px">
+    <h2 class="section-title">Comp &amp; benefits analyzer</h2>
+    <p class="section-desc">Internal pay benchmarked against a simulated industry index, headcount vs. budget, and the risks &amp; actions that fall out of both. All figures are illustrative — no real compensation data is used.</p>
+  </div>
+  <div class="kpi-row">
+    <div class="kpi"><div class="label">Avg. compa-ratio</div><div class="value" style="color:${avgCompa<0.95?'var(--critical)':'var(--ink-900)'}">${avgCompa}</div><div class="subtle">Internal pay ÷ simulated market rate</div></div>
+    <div class="kpi"><div class="label">Below-market headcount</div><div class="value" style="color:${belowMarket.length?'var(--critical)':'var(--ink-900)'}">${belowMarket.length}<span class="unit">of ${staff.length}</span></div><div class="subtle">Compa-ratio &lt; 0.90</div></div>
+    <div class="kpi"><div class="label">Headcount vs. budget</div><div class="value" style="color:${totalVariance>0?'var(--warning)':'var(--ink-900)'}">${totalVariance>0?'+':''}${totalVariance}</div><div class="subtle">Actual minus simulated budget</div></div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-head"><h3>Compa-ratio by department</h3><span class="hint">1.0 = at simulated market</span></div>
+      <div class="chart-box" style="height:230px"><canvas id="c-comp-ratio"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h3>Headcount: actual vs. budget</h3></div>
+      <div class="chart-box" style="height:230px"><canvas id="c-comp-budget"></canvas></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Department comp &amp; budget detail</h3></div>
+    <div class="table-wrap"><table><thead><tr><th>Department</th><th>Avg. compa-ratio</th><th>Below-market</th><th>Actual HC</th><th>Budgeted HC</th><th>Variance</th></tr></thead>
+    <tbody>${budgets.map(b=>{
+      const dstaff=deptAllStaff(b.dept.id);
+      const dCompa=round1(avg(dstaff.map(compaRatio)));
+      const dBelow=dstaff.filter(e=>compaRatio(e)<0.9).length;
+      return `<tr><td class="name">${deptLinkFn(b.dept.id,b.dept.name)}</td>
+      <td>${barCell(dCompa,1.15,dCompa<0.92?'var(--critical)':(dCompa<0.98?'var(--warning)':'var(--good)'))}</td>
+      <td class="tabular">${dBelow}</td><td class="tabular">${b.actual}</td><td class="tabular">${b.budgeted}</td>
+      <td class="tabular" style="color:${b.variance>0?'var(--warning)':(b.variance<0?'var(--accent-ink)':'var(--ink-700)')}">${b.variance>0?'+':''}${b.variance}</td></tr>`;
+    }).join('')}</tbody></table></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Simulated risks &amp; recommended actions</h3><span class="hint">Pay equity, retention exposure &amp; budget variance</span></div>
+    ${risks.length?risks.map(r=>`
+      <div class="amp-card">
+        <div class="amp-icon">${r.type==='Pay-equity risk'?'⚖️':r.type==='Retention risk'?'🛟':r.type==='Budget risk'?'💰':'📋'}</div>
+        <div class="amp-body">
+          <div class="amp-title">${esc(r.type)} — ${esc(r.dept)}</div>
+          <div class="amp-desc">${esc(r.text)} <strong>Action:</strong> ${esc(r.action)}</div>
+          <div class="amp-meta"><span class="amp-badge" style="${r.severity==='High'?'background:var(--critical-soft);color:var(--critical)':r.severity==='Medium'?'background:var(--warning-soft);color:var(--warning)':''}">${esc(r.severity)} severity</span></div>
+        </div>
+      </div>`).join(''):'<div class="empty-note">No comp or budget risks flagged in this scope right now.</div>'}
+  </div>`;
+}
+SECTION_RENDERERS['hrbp:comp']=compBenefitsSection;
+SECTION_RENDERERS['people:comp']=compBenefitsSection;
+
+/* ---------- SHARED: Alert Center (spike detection + auto email draft) ---------- */
+function detectSpikes(deptIds){
+  const alerts=[];
+  deptIds.forEach(id=>{
+    const dept=DEPTS.find(d=>d.id===id);
+    const series=deptAttritionSeries[id];
+    const last=series[series.length-1], prev=series[series.length-2];
+    if(prev>0 && (last-prev)/prev>=0.35){
+      alerts.push({severity:'High',metric:'Attrition rate',dept:dept.name,deptId:id,
+        text:`${dept.name}'s monthly attrition rate jumped from ${prev}% to ${last}% month-over-month (+${round1((last-prev)/prev*100)}%).`});
+    }
+    const engSeries=deptEngagementSeries[id];
+    const eLast=engSeries[engSeries.length-1], eFirst=engSeries[engSeries.length-4]!=null?engSeries[engSeries.length-4]:engSeries[0];
+    if(eFirst-eLast>=8){
+      alerts.push({severity:'Medium',metric:'Engagement drop',dept:dept.name,deptId:id,
+        text:`${dept.name}'s engagement dropped ${round1(eFirst-eLast)} pts over the last 3 pulses (${eFirst} → ${eLast}).`});
+    }
+  });
+  const erCount=ER_CASES.filter(c=>deptIds.includes(c.deptId) && c.stage!=='Closed').length;
+  if(erCount>=6){
+    alerts.push({severity:'Medium',metric:'ER case volume',dept:'All scoped departments',deptId:null,
+      text:`${erCount} open Employee Relations cases in scope — above this workspace's typical caseload.`});
+  }
+  const order={High:0,Medium:1,Low:2};
+  return alerts.sort((a,b)=>order[a.severity]-order[b.severity]);
+}
+function alertCenterSection(){
+  const deptIds=state.role==='hrbp'?hrbpDepts():DEPTS.map(d=>d.id);
+  const alerts=detectSpikes(deptIds);
+  const runKey=state.role+':'+(state.role==='hrbp'?currentHrbp().id:'company');
+  const drafts=state.alertDrafts[runKey]||{};
+  return `
+  <div class="section-title-wrap" style="margin-bottom:2px">
+    <h2 class="section-title">Alert center</h2>
+    <p class="section-desc">Automatically scans attrition, engagement and ER trends for spikes, and drafts an email you can review and send.</p>
+  </div>
+  <div class="kpi-row">
+    <div class="kpi"><div class="label">Active alerts</div><div class="value" style="color:${alerts.length?'var(--critical)':'var(--ink-900)'}">${alerts.length}</div></div>
+    <div class="kpi"><div class="label">High severity</div><div class="value">${alerts.filter(a=>a.severity==='High').length}</div></div>
+    <div class="kpi"><div class="label">Scope</div><div class="value" style="font-size:17px">${state.role==='hrbp'?'Client groups':'Company-wide'}</div></div>
+  </div>
+  ${alerts.length?alerts.map((a,i)=>`
+    <div class="card">
+      <div class="card-head">
+        <h3>${a.severity==='High'?'🔴':'🟠'} ${esc(a.metric)} — ${esc(a.dept)}</h3>
+        <span class="pill ${a.severity==='High'?'critical':'warning'}">${esc(a.severity)}</span>
+      </div>
+      <p class="section-desc" style="margin:0 0 10px">${esc(a.text)}</p>
+      <button class="btn" data-gen-alert="${i}">✉️ Generate email alert</button>
+      ${drafts[i]?`<div class="draft-msg" style="margin-top:10px">
+        <div class="draft-msg-head"><span>Email → ${esc(drafts[i].to||'Leadership')}</span><button class="btn" data-copy-alert="${i}">Copy</button></div>
+        <div class="draft-subject">${esc(drafts[i].subject||'')}</div>
+        <pre class="draft-body">${esc(drafts[i].body||'')}</pre>
+      </div>`:''}
+    </div>`).join(''):'<div class="card"><div class="empty-note">No spikes detected in this scope right now — nothing to alert on.</div></div>'}`;
+}
+async function generateAlertEmail(idx){
+  const deptIds=state.role==='hrbp'?hrbpDepts():DEPTS.map(d=>d.id);
+  const alerts=detectSpikes(deptIds);
+  const a=alerts[idx]; if(!a) return;
+  const runKey=state.role+':'+(state.role==='hrbp'?currentHrbp().id:'company');
+  if(!state.alertDrafts[runKey]) state.alertDrafts[runKey]={};
+  const fallback={to:'People Leadership',subject:`[Alert] ${a.metric} spike — ${a.dept}`,
+    body:`Flagging a ${a.severity.toLowerCase()}-severity signal from Tap In:\n\n${a.text}\n\nRecommend a quick review this week. This is an automated, illustrative alert from simulated workspace data — please validate before acting.`};
+  try{
+    const sample=await claude.use('sample');
+    if(!sample){ state.alertDrafts[runKey][idx]=fallback; renderAll(); return; }
+    const sys=`You are Tap In's alert-drafting assistant. Write a short, professional email alerting people leadership to this detected spike: "${a.text}" (severity: ${a.severity}, metric: ${a.metric}, scope: ${a.dept}). `+
+      `Return ONLY a JSON object: {"to":string,"subject":string,"body":string}. Keep the body under 120 words, factual, and end by asking the recipient to review — never claim a root cause you don't have evidence for.`;
+    const result=await sample.json(sys,{modelTier:'quick'});
+    state.alertDrafts[runKey][idx]=result;
+  }catch(err){
+    state.alertDrafts[runKey][idx]=fallback;
+  }
+  renderAll();
+}
+SECTION_RENDERERS['hrbp:alerts']=alertCenterSection;
+SECTION_RENDERERS['people:alerts']=alertCenterSection;
+
 /* ---------- PEOPLE TEAM: Integrations ---------- */
 const INTEGRATIONS=[
   {name:'Workday',color:'#f47d20',initial:'W',status:'Connected',meta:`Synced ${TOTAL_HC} employee records · 2 hours ago`,
@@ -1665,6 +2127,8 @@ const INTEGRATIONS=[
    fields:['Requisition ID','Stage','Source']},
   {name:'Slack pulse channel',color:'#4a154b',initial:'S',status:'Connected',meta:'Monthly pulse survey distribution · synced today',
    fields:['Channel ID','Response Rate','Survey Template']},
+  {name:'LMS (Learning Platform)',color:'#0a66c2',initial:'L',status:'Connected',meta:'Course completions &amp; certifications · synced 6 hours ago',
+   fields:['Learner ID','Course Code','Completion %','Certification Date','Required-by-Level Flag']},
 ];
 SECTION_RENDERERS['people:integrations']=function(){
   return `
@@ -1691,6 +2155,7 @@ const DATA_SCHEMA=[
   {source:'ADP Workforce Now', dir:'In', elements:'Employee ID, pay group, base compensation, FLSA status', optimizes:'Pay-equity-aware attrition risk, comp-driven flight-risk signal'},
   {source:'Greenhouse (ATS)', dir:'In', elements:'Requisition ID, pipeline stage, source, time-to-fill', optimizes:'Backfill planning, requisition-to-attrition linkage'},
   {source:'Slack pulse channel', dir:'In', elements:'Response rate, sentiment score, survey template', optimizes:'Engagement trend detection, coaching-trigger timing'},
+  {source:'LMS (learning platform)', dir:'In', elements:'Course completions, certifications, required-by-level flags', optimizes:'Competency analyzer, promotion-readiness scoring, job leveling'},
   {source:'Workday (write-back)', dir:'Out', elements:'Flight-risk flag, coaching-plan status (custom fields)', optimizes:'Keeps the system of record current for audit & compliance'},
   {source:'Slack / Teams', dir:'Out', elements:'Manager coaching nudges, stay-interview reminders', optimizes:'Faster manager action, less manual HRBP outreach'},
   {source:'BI / exec reporting', dir:'Out', elements:'KPI snapshots, benchmark rankings, attrition hotspots', optimizes:'Leadership visibility, board-ready reporting'},
@@ -1882,6 +2347,30 @@ function wireSectionInteractions(){
     const btn=document.getElementById('run-orgdiag-btn');
     if(btn) btn.addEventListener('click',()=>runOrgDiagnostic());
   }
+  if(key==='hrbp:comp'||key==='people:comp'){
+    const deptIds=compScopeDeptIds();
+    const depts=deptAgg.filter(d=>deptIds.includes(d.id));
+    barChart('c-comp-ratio', depts.map(d=>d.name), depts.map(d=>round1(avg(deptAllStaff(d.id).map(compaRatio)))), depts.map(d=>{
+      const v=round1(avg(deptAllStaff(d.id).map(compaRatio)));
+      return v<0.92?cssv('--critical'):(v<0.98?cssv('--warning'):cssv('--good'));
+    }),{max:1.15});
+    const budgets=depts.map(d=>headcountBudget(d.id));
+    mkChart('c-comp-budget',{type:'bar',data:{labels:depts.map(d=>d.name),datasets:[
+      {label:'Actual',data:budgets.map(b=>b.actual),backgroundColor:cssv('--accent'),borderRadius:4},
+      {label:'Budgeted',data:budgets.map(b=>b.budgeted),backgroundColor:cssv('--ink-300'),borderRadius:4},
+    ]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',
+      plugins:{legend:{display:true,labels:{color:chartTextColor(),boxWidth:9,boxHeight:9,usePointStyle:true,font:{size:11}}},tooltip:{backgroundColor:cssv('--paper-1'),titleColor:cssv('--ink-900'),bodyColor:cssv('--ink-700'),borderColor:cssv('--line'),borderWidth:1,padding:10}},
+      scales:{x:{ticks:{color:chartTextColor(),font:{size:11}},grid:{color:chartGridColor()},beginAtZero:true},y:{ticks:{color:chartTextColor(),font:{size:11}},grid:{color:'transparent'}}}}});
+  }
+  if(key==='hrbp:alerts'||key==='people:alerts'){
+    document.querySelectorAll('[data-gen-alert]').forEach(b=>b.addEventListener('click',()=>{ b.disabled=true; b.textContent='Drafting…'; generateAlertEmail(+b.dataset.genAlert); }));
+    document.querySelectorAll('[data-copy-alert]').forEach(b=>b.addEventListener('click',async()=>{
+      const runKey=state.role+':'+(state.role==='hrbp'?currentHrbp().id:'company');
+      const d=(state.alertDrafts[runKey]||{})[+b.dataset.copyAlert]; if(!d) return;
+      const text=(d.subject?d.subject+'\n\n':'')+(d.body||'');
+      try{ await navigator.clipboard.writeText(text); const old=b.textContent; b.textContent='Copied'; setTimeout(()=>{b.textContent=old;},1400);}catch(e){}
+    }));
+  }
 }
 
 function downloadReport(){
@@ -1950,18 +2439,75 @@ function scopeLabel(){
 }
 function updateAssistScopeLabel(){
   const el=document.getElementById('assist-scope-label');
-  if(el) el.textContent='Scoped to: '+scopeLabel();
+  if(el) el.textContent= state.assistMode==='policy' ? 'Searches internal policies, SOPs & intranet resources' : 'Scoped to: '+scopeLabel();
   renderSuggestChips();
 }
 function renderSuggestChips(){
   const box=document.getElementById('assist-suggest'); if(!box) return;
   let chips=[];
-  if(state.role==='manager') chips=['Who on my team is highest attrition risk?','Summarize my team\'s engagement trend','What should I prioritize this week?'];
+  if(state.assistMode==='policy'){
+    chips=['Do we already have a stay-interview guide?','What\'s our remote work policy?','Is there an SOP for PIPs?','What\'s our comp philosophy on pay equity?'];
+  } else if(state.role==='manager') chips=['Who on my team is highest attrition risk?','Summarize my team\'s engagement trend','What should I prioritize this week?'];
   else if(state.role==='hrbp') chips=['Which manager needs coaching most urgently?','Compare my client groups\' benchmarks','Draft talking points for my exec sync'];
   else chips=['Which department has the highest attrition risk?','Summarize company-wide performance distribution','What should leadership focus on this quarter?'];
   box.innerHTML=chips.map(c=>`<button class="chip-btn" type="button">${esc(c)}</button>`).join('');
   box.querySelectorAll('.chip-btn').forEach(b=>b.addEventListener('click',()=>{document.getElementById('assist-text').value=b.textContent; submitAssistant();}));
 }
+function assistMsgsEl(){ return document.getElementById(state.assistMode==='policy'?'assist-msgs-policy':'assist-msgs-data'); }
+function setAssistMode(mode){
+  state.assistMode=mode;
+  document.querySelectorAll('.assist-tab').forEach(t=>t.classList.toggle('active',t.dataset.mode===mode));
+  document.getElementById('assist-msgs-data').hidden = mode!=='data';
+  document.getElementById('assist-msgs-policy').hidden = mode!=='policy';
+  document.getElementById('assist-text').placeholder = mode==='policy' ? 'Ask what policies or resources we already have…' : 'Ask about your people data…';
+  updateAssistScopeLabel();
+  if(!assistMsgsEl().childElementCount){
+    appendMsg('bot', mode==='policy'
+      ? 'Hi — I search Tap In\'s internal policy, SOP and intranet library. Ask me if a resource already exists before you draft something new.'
+      : `Hi — I'm your Tap In data analyst. I can see the data for your current view (${scopeLabel()}). Ask me about risk, performance, or coaching, or try a suggestion below.`);
+  }
+}
+
+/* ---- simulated internal policy / SOP / intranet knowledge base ---- */
+const POLICY_LIBRARY=[
+  {title:'Remote & Hybrid Work Policy', category:'Workplace', tags:['remote','hybrid','wfh','work from home','equipment','core hours'],
+    summary:'Eligible roles may work remote up to 3 days/week; core collaboration hours are 10am–3pm local time. A one-time $500 home-office stipend is available via the intranet Equipment Request form.'},
+  {title:'Paid Time Off (PTO) Policy', category:'Benefits', tags:['pto','vacation','time off','accrual','carryover','sick leave'],
+    summary:'Accrual starts at 15 days/year, increasing to 20 at 3 years and 25 at 7 years tenure. Up to 5 unused days carry over into the next calendar year; requests go through the Time Off tile on the intranet.'},
+  {title:'Performance Improvement Plan (PIP) SOP', category:'Performance', tags:['pip','performance improvement','underperformance','coaching plan'],
+    summary:'A PIP is initiated after two consecutive "Below" or one "Significantly Below" rating, following HRBP sign-off. Standard duration is 30–60 days with weekly check-ins; template lives on the intranet under Manager Toolkit → Performance.'},
+  {title:'Anti-Harassment & Non-Retaliation Policy', category:'Employee Relations', tags:['harassment','discrimination','retaliation','reporting','misconduct'],
+    summary:'Reports may go to any manager, HRBP, or the anonymous Ethics Line (intranet → Report a Concern). Non-retaliation is guaranteed; investigations begin within 5 business days per the ER Escalation SOP.'},
+  {title:'Stay Interview Guide', category:'Retention', tags:['stay interview','retention','flight risk','engagement conversation'],
+    summary:'Recommended for anyone flagged Elevated or High attrition risk. Includes a 6-question bank on career growth, workload, and manager relationship; guide and scheduling template are on the intranet under HRBP Playbooks.'},
+  {title:'Exit Interview SOP', category:'Offboarding', tags:['exit interview','offboarding','departure','resignation'],
+    summary:'Exit interviews are auto-scheduled within 3 days of a resignation via the LMS/HRIS integration; responses feed the Exit Interview dashboard here in Tap In. Data is de-identified after 90 days per retention policy.'},
+  {title:'Compensation Philosophy', category:'Comp & Benefits', tags:['compensation','pay','salary','comp','market rate','pay equity','compa-ratio'],
+    summary:'Target pay positioning is market median (compa-ratio ~1.0) with department-level premiums for hard-to-fill technical roles. Off-cycle adjustments require a compa-ratio below 0.90 or a documented retention risk, approved by Finance + People leadership.'},
+  {title:'Learning & Development Policy', category:'L&D', tags:['learning','training','lms','certification','tuition','development'],
+    summary:'Each level has required LMS certifications (see the Job Levels & Leveling Framework in Talent Planning); $2,000/year tuition reimbursement is available for job-relevant coursework via the L&D tile on the intranet.'},
+  {title:'Onboarding Checklist', category:'Onboarding', tags:['onboarding','new hire','30 60 90','orientation'],
+    summary:'Standard 30/60/90-day milestones are tracked automatically in the HRIS; managers receive an intranet checklist covering equipment, systems access, and the first stay-interview at day 45.'},
+  {title:'Employee Relations Escalation SOP', category:'Employee Relations', tags:['er','escalation','sla','case','investigation','sop milestones'],
+    summary:'Cases are triaged into SLA tiers by category (5–20 days). Breached or high-severity cases auto-escalate to the ER Tracker\'s escalation banner here in Tap In and require qualified HR/Legal review — never resolved by the AI assistant.'},
+  {title:'Job Levels & Career Framework', category:'Career', tags:['leveling','career framework','promotion','job description','ic levels'],
+    summary:'IC1–IC5 framework with minimum competency and LMS-completion thresholds per level, detailed in Talent Planning → Job Levels & Leveling Framework. Promotion packets go through the standard calibration cycle.'},
+];
+function searchPolicyLibrary(query){
+  const q=(query||'').toLowerCase();
+  const terms=q.split(/\s+/).filter(Boolean);
+  const scored=POLICY_LIBRARY.map(doc=>{
+    const hay=(doc.title+' '+doc.category+' '+doc.tags.join(' ')+' '+doc.summary).toLowerCase();
+    const score=terms.reduce((s,t)=>s+(hay.includes(t)?1:0),0);
+    return {doc,score};
+  }).filter(x=>x.score>0).sort((a,b)=>b.score-a.score);
+  return scored.slice(0,5).map(x=>({title:x.doc.title,category:x.doc.category,summary:x.doc.summary}));
+}
+const POLICY_SYSTEM_PROMPT=`You are the Tap In "Policy & Resources" assistant. Your job is to check whether a relevant internal policy, SOP, or intranet resource already exists before anyone spends time drafting something new. `+
+  `Use the search_policy_library tool to search the actual internal knowledge base — never invent a policy that isn't returned by the tool. `+
+  `If a matching resource exists, name it, give a one-line summary from the tool result, and say where to find it (the intranet location or the relevant Tap In section named in the summary). `+
+  `If nothing matches, say plainly that there's no existing resource for this and suggest who to ask (their HRBP, or People Ops) — do not fabricate one. `+
+  `You are not the HR operating model analyst — do not compute metrics or discuss individual employee data here; stay focused on policy and resource lookup. Keep answers to 2-4 sentences.`;
 
 const AI_TOOLS=[
   {name:'get_company_kpis', description:'Get company-wide KPI summary: headcount, avg performance, avg engagement, attrition rate.',
@@ -2025,6 +2571,14 @@ const AI_TOOLS=[
       };
     }},
 ];
+const POLICY_TOOLS=[
+  {name:'search_policy_library', description:'Search internal company policies, SOPs, and intranet resources by keyword. Returns matching document titles, categories, and summaries.',
+    inputSchema:{type:'object',properties:{query:{type:'string'}},required:['query']},
+    execute:async(input)=>{
+      const results=searchPolicyLibrary(input.query);
+      return results.length?results:{note:'No matching internal resource found for this query.'};
+    }},
+];
 const ORG_ANALYST_SYSTEM_PROMPT=`Illustrative prototype. All calculations below are illustrative, not verified operational metrics.
 
 ROLE
@@ -2069,8 +2623,10 @@ let assistBusy=false;
 function openAssistant(){
   document.getElementById('assist-drawer').classList.add('open');
   document.getElementById('assist-backdrop').classList.add('open');
-  if(!document.getElementById('assist-msgs').childElementCount){
-    appendMsg('bot', `Hi — I'm your Tap In assistant. I can see the data for your current view (${scopeLabel()}). Ask me about risk, performance, or coaching, or try a suggestion below.`);
+  if(!assistMsgsEl().childElementCount){
+    appendMsg('bot', state.assistMode==='policy'
+      ? 'Hi — I search Tap In\'s internal policy, SOP and intranet library. Ask me if a resource already exists before you draft something new.'
+      : `Hi — I'm your Tap In data analyst. I can see the data for your current view (${scopeLabel()}). Ask me about risk, performance, or coaching, or try a suggestion below.`);
   }
   document.getElementById('assist-text').focus();
 }
@@ -2079,7 +2635,7 @@ function closeAssistant(){
   document.getElementById('assist-backdrop').classList.remove('open');
 }
 function appendMsg(role,text,cls){
-  const box=document.getElementById('assist-msgs');
+  const box=assistMsgsEl();
   const div=document.createElement('div');
   div.className='msg '+role+(cls?' '+cls:'');
   div.textContent=text;
@@ -2092,6 +2648,7 @@ async function submitAssistant(){
   const input=document.getElementById('assist-text');
   const text=input.value.trim();
   if(!text) return;
+  const mode=state.assistMode;
   input.value='';
   appendMsg('user',text);
   const thinking=appendMsg('bot','Thinking…','thinking');
@@ -2104,14 +2661,14 @@ async function submitAssistant(){
       appendMsg('sys','The AI assistant isn\'t available in this preview context.');
       return;
     }
-    const sys=ORG_ANALYST_SYSTEM_PROMPT+`\n\n`+
+    const sys = mode==='policy' ? POLICY_SYSTEM_PROMPT : ORG_ANALYST_SYSTEM_PROMPT+`\n\n`+
       `The current viewer's persona is: ${scopeLabel()}. Only discuss data within their scope — never claim visibility into data outside it. `+
       `Use the provided tools to look up real figures before answering; never invent numbers. Be concise (2-6 sentences or a short list) unless the question needs a ranked list of hypotheses. `+
       `All data is simulated demo data, not a real company — you can say so if asked.`;
     const res=await sample([{role:'user',content:sys+'\n\nQuestion: '+text}],{
-      tools:AI_TOOLS,
+      tools: mode==='policy' ? POLICY_TOOLS : AI_TOOLS,
       modelTier:'quick',
-      onText:({text:t})=>{ thinking.classList.remove('thinking'); thinking.textContent=t; document.getElementById('assist-msgs').scrollTop=9e9; }
+      onText:({text:t})=>{ thinking.classList.remove('thinking'); thinking.textContent=t; assistMsgsEl().scrollTop=9e9; }
     });
     thinking.classList.remove('thinking');
     thinking.textContent=res.text||'(no response)';
@@ -2129,11 +2686,13 @@ async function submitAssistant(){
    ================================================================ */
 document.getElementById('assist-toggle').addEventListener('click',openAssistant);
 document.getElementById('assist-close').addEventListener('click',closeAssistant);
+document.querySelectorAll('.assist-tab').forEach(t=>t.addEventListener('click',()=>setAssistMode(t.dataset.mode)));
 document.getElementById('assist-backdrop').addEventListener('click',closeAssistant);
 document.getElementById('assist-form').addEventListener('submit',e=>{e.preventDefault(); submitAssistant();});
 
 renderShell();
 renderAll();
+wireDrillDownDelegation();
 
 })();
 </script>
