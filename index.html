@@ -138,6 +138,9 @@ nav.section-nav{display:flex; flex-direction:column; gap:2px;}
 @media (max-width:980px){.grid2,.grid3{grid-template-columns:1fr;}}
 .card{background:var(--paper-1); border:1px solid var(--line); border-radius:14px; padding:18px; box-shadow:var(--shadow-1);}
 .card-head{display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:12px;}
+.card-head-actions{display:flex; align-items:center; gap:8px;}
+.card-export-btn{width:24px; height:24px; padding:0; display:flex; align-items:center; justify-content:center; border-radius:6px; color:var(--ink-500); flex:none;}
+.card-export-btn:hover{background:var(--paper-2); color:var(--accent-ink);}
 .card-head h3{font-size:15.5px; font-weight:600; font-family:var(--font-body);}
 .card-head .hint{font-size:11.5px; color:var(--ink-500);}
 .section-title{font-size:24px; margin-bottom:2px;}
@@ -698,6 +701,27 @@ employees.forEach(e=>{
   e.lmsCompletionPct=clamp(Math.round(50+e.engagement*0.4+rf(-15,15)),10,100);
 });
 function avgCompetency(e){ return round1(avg(e.competencyScores)); }
+
+/* ---- per-employee historical pulse trend + spike detection ---- */
+employees.forEach(e=>{
+  const h=[]; let v=clamp(e.engagement+rf(-8,8),18,99);
+  const hasSpike=rand()<0.4;
+  const spikeAt=hasSpike?ri(1,4):-1;
+  const spikeDir=rand()<0.62?-1:1; // dips more common than rises, matching real pulse-survey patterns
+  for(let i=0;i<6;i++){
+    v+=rf(-3.2,2.8);
+    if(i===spikeAt) v+=spikeDir*rf(11,19);
+    else if(i===spikeAt+1) v-=spikeDir*rf(3,8); // partial pull-back the month after a spike
+    h.push(clamp(Math.round(v),12,99));
+  }
+  h[5]=e.engagement; // anchor the most recent pulse to the person's current snapshot value
+  e.engagementHistory=h;
+});
+function detectEmployeeSpikes(e){
+  const h=e.engagementHistory; if(!h||h.length<3) return [];
+  const mean=avg(h);
+  return h.map((v,i)=>({i,v,delta:round1(v-mean)})).filter(p=>Math.abs(p.delta)>=9);
+}
 const LEVELS=[
   {id:'IC1', title:'Associate', minCompetency:1.6, minLms:40, blurb:'Learning core workflows under close guidance.'},
   {id:'IC2', title:'Contributor', minCompetency:2.1, minLms:55, blurb:'Executes independently on well-defined work.'},
@@ -766,6 +790,48 @@ function compRisksAndActions(scopeDeptIds){
   const order={High:0,Medium:1,Low:2};
   return out.sort((a,b)=>order[a.severity]-order[b.severity]);
 }
+
+/* ---- cost of replacement & time-to-fill vs. current funnel activity ---- */
+const REPLACEMENT_MULTIPLIER={IC1:0.5,IC2:0.6,IC3:0.9,IC4:1.2,IC5:1.75,M1:1.4,M2:1.8,M3:2.2};
+function replacementCost(e){ return Math.round(e.baseSalary*(REPLACEMENT_MULTIPLIER[e.level]||0.75)); }
+const TIME_TO_FILL_BENCHMARK={IC1:28,IC2:32,IC3:40,IC4:52,IC5:68,M1:55,M2:70,M3:90};
+const FUNNEL_STAGES=['Sourcing','Screening','Interview','Offer'];
+const OPEN_REQS=(()=>{
+  const out=[]; let seq=1;
+  DEPTS.forEach(d=>{
+    const n=ri(1,4);
+    for(let i=0;i<n;i++){
+      const level=pick(['IC2','IC3','IC4','M1']);
+      const daysOpen=ri(5,95);
+      const stage=pick(FUNNEL_STAGES);
+      const stageIdx=FUNNEL_STAGES.indexOf(stage);
+      out.push({
+        id:'REQ-'+(1000+seq++), deptId:d.id, level, title:pick(TITLES_IC[d.id]),
+        daysOpen, stage, benchmark:TIME_TO_FILL_BENCHMARK[level]||40,
+        candidatesInPipeline:ri(2,14),
+        stageCounts:FUNNEL_STAGES.map((s,idx)=>idx<=stageIdx?ri(1,5):0),
+      });
+    }
+  });
+  return out;
+})();
+function reqsInScope(deptIds){ return OPEN_REQS.filter(r=>deptIds.includes(r.deptId)); }
+function replacementExposure(staff){
+  return staff.filter(e=>e.riskBand==='High'||e.riskBand==='Elevated').reduce((s,e)=>s+replacementCost(e),0);
+}
+
+/* ---- CPO-only: talent cost mapped to strategic contracts/milestones vs. ROI ---- */
+function deptPayroll(deptId){ return deptAllStaff(deptId).reduce((s,e)=>s+e.baseSalary,0); }
+const TOTAL_ANNUAL_PAYROLL=employees.reduce((s,e)=>s+e.baseSalary,0);
+const STRATEGIC_CONTRACTS=[
+  {id:'CT-1', name:'Enterprise client renewal', deptIds:['sales','cx'], allocation:0.35, value:12500000, milestone:'Renewal signature', status:'On track', targetDate:'2026-11-15'},
+  {id:'CT-2', name:'Product launch: Streaming 2.0', deptIds:['eng','product'], allocation:0.45, value:13500000, milestone:'GA release', status:'At risk', targetDate:'2026-12-01'},
+  {id:'CT-3', name:'Market expansion — EMEA', deptIds:['sales','marketing'], allocation:0.25, value:7500000, milestone:'Regional team staffed', status:'On track', targetDate:'2027-02-01'},
+  {id:'CT-4', name:'Data platform modernization', deptIds:['data','eng'], allocation:0.2, value:2900000, milestone:'Migration complete', status:'Delayed', targetDate:'2026-10-30'},
+  {id:'CT-5', name:'Content partnership — league rights', deptIds:['content'], allocation:0.5, value:9500000, milestone:'Content delivery SLA', status:'On track', targetDate:'2027-01-20'},
+];
+function contractTalentCost(c){ return Math.round(c.deptIds.reduce((s,id)=>s+deptPayroll(id)*c.allocation,0)); }
+function contractROI(c){ const cost=contractTalentCost(c); return cost?round1(c.value/cost):0; }
 
 function managerAgg(mgr){
   const team=employees.filter(e=>e.managerId===mgr.id);
@@ -845,6 +911,7 @@ const state={
   assistMode:'data',
   orgchartMetric:'risk',
   scenario:{dept:'all', headcountDelta:0, compCatchup:0, retentionEffect:20},
+  accessLevel:'standard',
 };
 function rangeSlice(arr){return arr.slice(arr.length-Math.min(state.range,arr.length));}
 function rangeMonths(){return rangeSlice(MONTHS);}
@@ -852,7 +919,7 @@ function rangeMonths(){return rangeSlice(MONTHS);}
 const SECTIONS={
   manager:[['overview','Overview'],['roster','Team Roster'],['pulse','Pulse Trends'],['amplifier','Amplifier']],
   hrbp:[['overview','Overview'],['benchmark','Benchmarking'],['scenario','Scenario Planner'],['attrition','Attrition Watch'],['coaching','Coaching Queue'],['comp','Comp & Benefits'],['ertracker','ER Tracker'],['orgdiag','Org Diagnostics'],['alerts','Alert Center'],['agent','Automation Agent'],['reports','Exec Reports']],
-  people:[['overview','Company Overview'],['orgchart','Org Chart'],['performance','Performance & Ranking'],['workforce','Workforce Planner'],['talent','Talent Planning'],['succession','Succession Planning'],['scenario','Scenario Planner'],['attrition','Attrition Trends'],['exit','Exit Interviews'],['comp','Comp & Benefits'],['ertracker','ER Tracker'],['orgdiag','Org Diagnostics'],['alerts','Alert Center'],['integrations','HRIS Integrations'],['architecture','Data Architecture'],['reports','Exec Reports']],
+  people:[['overview','Company Overview'],['orgchart','Org Chart'],['performance','Performance & Ranking'],['workforce','Workforce Planner'],['talent','Talent Planning'],['succession','Succession Planning'],['scenario','Scenario Planner'],['attrition','Attrition Trends'],['exit','Exit Interviews'],['comp','Comp & Benefits'],['ertracker','ER Tracker'],['orgdiag','Org Diagnostics'],['alerts','Alert Center'],['integrations','HRIS Integrations'],['architecture','Data Architecture'],['reports','Exec Reports'],['cporoi','Talent Cost & ROI']],
 };
 const ROLE_META={
   manager:{label:'Manager / Partner', icon:'👤'},
@@ -950,6 +1017,11 @@ function openEmployeeDetail(id){
         ${e.lmsCompletionPct!=null?`<tr><td class="subtle">LMS completion</td><td>${barCell(e.lmsCompletionPct,100,'var(--accent)')}</td></tr>`:''}
       </tbody>
     </table></div>
+    ${e.engagementHistory?(()=>{const spikes=detectEmployeeSpikes(e); return `
+    <div class="card-head" style="margin-top:14px"><h3 style="font-size:13.5px">Pulse history</h3><span class="hint">Last 6 surveys</span></div>
+    <div class="chart-box" style="height:80px"><canvas id="modal-emp-spark"></canvas></div>
+    <p class="hint" style="margin-top:8px">${spikes.length?spikes.map(s=>`${s.delta<0?'▼':'▲'} ${Math.abs(s.delta)} pts at pulse ${s.i+1}`).join(' · '):'No sharp deviations from this person\'s own trend.'}</p>
+    `;})():''}
     ${!e.isManager&&!e.isDirector&&e.competencyScores?(()=>{const r=promotionReadiness(e); return `
     <div class="card-head" style="margin-top:14px"><h3 style="font-size:13.5px">Competencies</h3></div>
     <div class="table-wrap"><table><tbody>${COMPETENCIES.map((c,i)=>`<tr><td class="subtle">${esc(c)}</td><td>${barCell(e.competencyScores[i],5,'var(--accent)')}</td></tr>`).join('')}</tbody></table></div>
@@ -957,6 +1029,17 @@ function openEmployeeDetail(id){
     `;})():''}
     <p class="hint" style="margin-top:12px">Illustrative simulated profile — part of this workspace's demo dataset.</p>`;
   openModal(e.name, e.title+' · '+dept.name, body, {type:'emp',id});
+  if(e.engagementHistory){
+    const spikes=detectEmployeeSpikes(e);
+    const worst=spikes.slice().sort((a,b)=>a.delta-b.delta)[0];
+    renderModalSparkline('modal-emp-spark', e.engagementHistory, worst?(worst.delta<0?cssv('--critical'):cssv('--good')):cssv('--accent'));
+  }
+}
+function renderModalSparkline(canvasId,data,color){
+  const el=document.getElementById(canvasId); if(!el) return;
+  const existing=Chart.getChart(el); if(existing) existing.destroy();
+  new Chart(el.getContext('2d'),{type:'line',data:{labels:data.map((_,i)=>i),datasets:[{data,borderColor:color,borderWidth:1.8,pointRadius:0,tension:.4,fill:false}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{enabled:false}},scales:{x:{display:false},y:{display:false}}}});
 }
 function openManagerDetail(id){
   const m=empById[id]; if(!m) return;
@@ -1135,6 +1218,7 @@ function railIcon(name){
     alerts:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a6 6 0 0 0-6 6c0 4.5-1.5 6-2.5 7h17c-1-1-2.5-2.5-2.5-7a6 6 0 0 0-6-6Z"/><path d="M9.5 20.5a2.5 2.5 0 0 0 5 0"/></svg>',
     orgchart:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2.5" width="6" height="5" rx="1.3"/><rect x="2.5" y="16.5" width="6" height="5" rx="1.3"/><rect x="9.5" y="16.5" width="5" height="5" rx="1.3"/><rect x="16.5" y="16.5" width="5" height="5" rx="1.3"/><path d="M12 7.5v4M5.5 16.5v-3a1 1 0 0 1 1-1h11a1 1 0 0 1 1 1v3M12 12.5v4"/></svg>',
     scenario:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="3" width="19" height="18" rx="1.6"/><path d="M6.5 17l3.5-5 3 3 4.5-7" stroke-dasharray="1 2.4"/><circle cx="17.5" cy="8" r="1.3" fill="currentColor" stroke="none"/></svg>',
+    cporoi:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10.5" width="16" height="10.5" rx="2"/><path d="M7.5 10.5V7a4.5 4.5 0 0 1 9 0v3.5"/><path d="M12 14.5v3" stroke-linecap="round"/></svg>',
   };
   return icons[name]||'';
 }
@@ -1193,7 +1277,12 @@ function renderPersonaContext(){
     el.innerHTML=`Acting as HRBP<select id="sel-hrbp">${opts}</select>`;
     document.getElementById('sel-hrbp').addEventListener('change',e=>{state.asHrbpId=e.target.value; renderAll();});
   } else {
-    el.innerHTML=`People Team<br><span class="subtle">Company-wide visibility · ${TOTAL_HC.toLocaleString()} employees</span>`;
+    el.innerHTML=`People Team<br><span class="subtle">Company-wide visibility · ${TOTAL_HC.toLocaleString()} employees</span>
+      <select id="sel-access" style="margin-top:7px">
+        <option value="standard" ${state.accessLevel==='standard'?'selected':''}>Access level: People Team</option>
+        <option value="cpo" ${state.accessLevel==='cpo'?'selected':''}>Access level: CPO / Executive</option>
+      </select>`;
+    document.getElementById('sel-access').addEventListener('change',e=>{state.accessLevel=e.target.value; renderAll();});
   }
 }
 
@@ -1250,6 +1339,56 @@ function renderAll(){
   main.innerHTML=fn();
   wireSectionInteractions();
   updateAssistScopeLabel();
+  injectCardExports();
+}
+/* ---- universal per-card export: charts -> PNG, tables -> CSV ---- */
+function injectCardExports(){
+  document.querySelectorAll('#main .card').forEach(card=>{
+    const head=card.querySelector('.card-head');
+    if(!head || head.querySelector('button')) return; // skip cards that already have their own export/action buttons
+    const canvas=card.querySelector('canvas');
+    const table=card.querySelector('table');
+    if(!canvas && !table) return;
+    const titleText=(head.querySelector('h3')||{}).textContent||'tap-in-card';
+    const btn=document.createElement('button');
+    btn.className='icon-btn card-export-btn'; btn.title='Export this card'; btn.setAttribute('aria-label','Export this card');
+    btn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v13M7 11l5 5 5-5"/><path d="M4 19h16"/></svg>';
+    btn.addEventListener('click',(e)=>{
+      e.stopPropagation();
+      if(table) exportTableAsCSV(table, `tap-in-${slugify(titleText)}.csv`);
+      else if(canvas) exportChartAsPNG(canvas, `tap-in-${slugify(titleText)}.png`);
+    });
+    const hint=head.querySelector('.hint');
+    if(hint){
+      const wrap=document.createElement('div');
+      wrap.className='card-head-actions';
+      hint.replaceWith(wrap);
+      wrap.appendChild(hint);
+      wrap.appendChild(btn);
+    } else {
+      head.appendChild(btn);
+    }
+  });
+}
+async function exportChartAsPNG(canvas,filename){
+  const chart=Chart.getChart(canvas); if(!chart) return;
+  try{
+    const dataUrl=chart.toBase64Image('image/png',1);
+    const blob=await (await fetch(dataUrl)).blob();
+    const downloads=await claude.use('downloads');
+    if(downloads){ await downloads.save({filename,data:blob}); return; }
+  }catch(err){}
+  alert('Download isn\'t available in this preview.');
+}
+async function exportTableAsCSV(table,filename){
+  const headers=[...table.querySelectorAll('thead th')].map(th=>th.textContent.trim());
+  const rows=[...table.querySelectorAll('tbody tr')].map(tr=>[...tr.querySelectorAll('td')].map(td=>td.textContent.trim().replace(/\s+/g,' ')));
+  const csv=toCSV(headers.length?headers:rows[0]?.map((_,i)=>'Col '+(i+1))||[], headers.length?rows:rows.slice(1));
+  try{
+    const downloads=await claude.use('downloads');
+    if(downloads){ await downloads.save({filename,data:csv}); return; }
+  }catch(err){}
+  alert('Download isn\'t available in this preview.');
 }
 
 const SECTION_RENDERERS={};
@@ -1298,6 +1437,18 @@ SECTION_RENDERERS['manager:overview']=function(){
         <div class="kpi"><div class="label">Below-market</div><div class="value">${below.length}<span class="unit">of ${agg.headcount}</span></div></div>
       </div>
       ${below.length?`<p class="hint" style="margin-top:10px">${below.map(e=>empLink(e.id,e.name)).join(', ')} — flagged below the simulated market rate for their level. See the full Comp &amp; Benefits analyzer with your HRBP.</p>`:'<p class="hint" style="margin-top:10px">No one on your team is flagged below the simulated market rate.</p>'}`;
+    })()}
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Replacement cost &amp; open reqs</h3><span class="hint">${esc(dept.name)}</span></div>
+    ${(()=>{
+      const exposure=replacementExposure(agg.team);
+      const reqs=reqsInScope([mgr.deptId]);
+      const avgDaysOpen=reqs.length?Math.round(avg(reqs.map(r=>r.daysOpen))):0;
+      return `<div class="kpi-row" style="grid-template-columns:repeat(2,1fr)">
+        <div class="kpi"><div class="label">Replacement cost exposure</div><div class="value" style="color:${exposure?'var(--critical)':'var(--ink-900)'}">$${exposure.toLocaleString()}</div></div>
+        <div class="kpi"><div class="label">Open reqs in ${esc(dept.name)}</div><div class="value">${reqs.length}</div><div class="subtle">${reqs.length?`Avg ${avgDaysOpen}d open`:''}</div></div>
+      </div>`;
     })()}
   </div>`;
 };
@@ -1371,16 +1522,58 @@ SECTION_RENDERERS['manager:roster']=function(){
 };
 
 /* ---------- MANAGER: Pulse ---------- */
+function pulseNarrative(mgr){
+  const agg=managerAgg(mgr);
+  const trend=round1(mgr.engagementSpark[mgr.engagementSpark.length-1]-mgr.engagementSpark[0]);
+  const vsCompany=agg.avgEngagement-companyAvgEngagement;
+  const perPerson=agg.team.map(e=>({e,spikes:detectEmployeeSpikes(e)}));
+  const anyDip=perPerson.filter(x=>x.spikes.some(s=>s.delta<0));
+  const recentDip=perPerson.filter(x=>x.spikes.some(s=>s.delta<=-9 && s.i>=4));
+  const anyRise=perPerson.filter(x=>x.spikes.some(s=>s.delta>0));
+  const lines=[];
+  lines.push(`Team engagement is ${trend>=0?'trending up':'trending down'} ${Math.abs(trend)} pts over the last 6 pulses, now at ${agg.avgEngagement} — ${Math.abs(vsCompany)} pts ${vsCompany>=0?'above':'below'} the company average of ${companyAvgEngagement}.`);
+  if(recentDip.length){
+    lines.push(`${recentDip.length} team member${recentDip.length>1?'s have':' has'} a sharp, recent dip worth a check-in before the next cycle: ${recentDip.map(x=>x.e.name).join(', ')}.`);
+  } else if(anyDip.length){
+    lines.push(`${anyDip.length} team member${anyDip.length>1?'s have':' has'} had a notable dip at some point in the last 6 months, though nothing sharp in the most recent pulse.`);
+  } else {
+    lines.push(`No individual has had a sharp dip in the last 6 pulses — the team's signal has been comparatively steady.`);
+  }
+  if(anyRise.length) lines.push(`On the positive side, ${anyRise.length} team member${anyRise.length>1?'s saw':' saw'} a notable engagement rise at some point — worth understanding what drove it and whether it can be repeated.`);
+  return lines;
+}
 SECTION_RENDERERS['manager:pulse']=function(){
   const mgr=currentManager();
+  const agg=managerAgg(mgr);
+  const narrative=pulseNarrative(mgr);
   return `
+  <div class="card agent-intro">
+    <div class="card-head"><h3>What's happening with your team</h3><span class="hint">Auto-generated summary</span></div>
+    ${narrative.map(l=>`<p class="section-desc" style="margin:0 0 8px">${esc(l)}</p>`).join('')}
+  </div>
   <div class="card">
-    <div class="card-head"><h3>Engagement pulse — trailing 6 surveys</h3><span class="hint">Your team</span></div>
+    <div class="card-head"><h3>Engagement pulse — trailing 6 surveys</h3><span class="hint">Your team vs. company</span></div>
     <div class="chart-box" style="height:240px"><canvas id="c-mgr-pulse-full"></canvas></div>
   </div>
   <div class="card">
     <div class="card-head"><h3>Attrition rate trend</h3><span class="hint">Trailing 6 months, annualized est.</span></div>
     <div class="chart-box" style="height:200px"><canvas id="c-mgr-attr"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Individual pulse history</h3><span class="hint">Spikes flagged where a survey deviates sharply from that person's own 6-month trend</span></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Name</th><th>6-month trend</th><th>Current</th><th>Spikes</th></tr></thead>
+      <tbody>${agg.team.map(e=>{
+        const spikes=detectEmployeeSpikes(e);
+        const worst=spikes.slice().sort((a,b)=>a.delta-b.delta)[0];
+        const spikeColor=worst?(worst.delta<0?cssv('--critical'):cssv('--good')):cssv('--ink-300');
+        return `<tr data-emp="${e.id}">
+          <td class="name">${empLink(e.id,e.name)}</td>
+          <td style="width:110px"><div class="chart-box" style="height:30px"><canvas id="emp-spark-${e.id}" data-spike-color="${spikeColor}"></canvas></div></td>
+          <td class="tabular">${e.engagement}</td>
+          <td>${spikes.length?spikes.map(s=>`<span class="pill ${s.delta<0?'critical':'good'}"><span class="pdot"></span>${s.delta<0?'▼':'▲'} ${Math.abs(s.delta)} · pulse ${s.i+1}</span>`).join(' '):'<span class="pill neutral">Stable</span>'}</td>
+        </tr>`;
+      }).join('')}</tbody></table></div>
   </div>`;
 };
 
@@ -1596,34 +1789,83 @@ async function runHrbpAgent(){
 }
 
 /* ---------- shared: Exec report ---------- */
-function buildExecReport(scopeLabel, staff, mgrsInScope, extra){
+function wrapLine(text,width){
+  width=width||74;
+  const words=text.split(' '); const out=[]; let line='  ';
+  words.forEach(w=>{
+    if((line+w).length>width){ out.push(line.trimEnd()); line='  '+w+' '; }
+    else line+=w+' ';
+  });
+  if(line.trim()) out.push(line.trimEnd());
+  return out.join('\n');
+}
+function buildExecReport(scopeLabel, staff, mgrsInScope, deptIds, extra){
+  deptIds=deptIds||DEPTS.map(d=>d.id);
   const avgEng=Math.round(avg(staff.map(e=>e.engagement)));
   const avgPerf=round1(avg(staff.map(e=>e.perf)));
   const high=staff.filter(e=>e.riskBand==='High');
+  const elevated=staff.filter(e=>e.riskBand==='Elevated');
+  const attritionRate=extra&&extra.attritionRate!=null?extra.attritionRate:companyAttritionRate;
+  const attritionPrev=companyAttritionRatePrev;
+
+  const engSeriesAvg=MONTHS.map((_,i)=>round1(avg(deptIds.map(id=>deptEngagementSeries[id][i]))));
+  const engTrend=rangeSlice(engSeriesAvg);
+  const engDelta=round1(engTrend[engTrend.length-1]-engTrend[0]);
+  let spikeIdx=-1, spikeMag=0;
+  for(let i=1;i<engTrend.length;i++){ const d=round1(engTrend[i]-engTrend[i-1]); if(Math.abs(d)>Math.abs(spikeMag)){spikeMag=d; spikeIdx=i;} }
+  const spikeMonth=spikeIdx>0?rangeMonths()[spikeIdx]:null;
+
+  const exposure=replacementExposure(staff);
+  const reqs=reqsInScope(deptIds);
+  const avgDaysOpen=reqs.length?Math.round(avg(reqs.map(r=>r.daysOpen))):0;
+  const avgBenchmark=reqs.length?Math.round(avg(reqs.map(r=>r.benchmark))):0;
+  const overBenchmark=reqs.filter(r=>r.daysOpen>r.benchmark);
+
   const lines=[];
   lines.push(`TAP IN — EXECUTIVE SUMMARY`);
   lines.push(`Scope: ${scopeLabel}`);
   lines.push(`Generated: ${new Date().toISOString().slice(0,10)}  ·  Period: trailing ${state.range} months`);
   lines.push('='.repeat(60));
   lines.push('');
-  lines.push(`HEADCOUNT           ${staff.length}`);
-  lines.push(`AVG PERFORMANCE     ${avgPerf} / 5.0  (company: ${companyAvgPerf})`);
-  lines.push(`AVG ENGAGEMENT      ${avgEng} / 100  (company: ${companyAvgEngagement})`);
-  lines.push(`ATTRITION (annualized est.)   ${extra&&extra.attritionRate!=null?extra.attritionRate:companyAttritionRate}%  (prior period: ${companyAttritionRatePrev}%)`);
-  lines.push(`HIGH ATTRITION-RISK HEADCOUNT   ${high.length}`);
+  lines.push('NARRATIVE');
+  lines.push('-'.repeat(60));
+  lines.push(wrapLine(`Engagement is ${engDelta>=0?'up':'down'} ${Math.abs(engDelta)} pts over the trailing ${state.range} months, now at ${avgEng} vs. the company average of ${companyAvgEngagement}. Attrition sits at ${attritionRate}% annualized (est.), ${attritionRate>attritionPrev?'up':attritionRate<attritionPrev?'down':'flat'} from ${attritionPrev}% last period.`));
+  if(spikeMonth) lines.push(wrapLine(`The sharpest single-month move was in ${spikeMonth} (${spikeMag>=0?'+':''}${spikeMag} pts) — worth checking against any org changes or announcements around that time.`));
+  lines.push(wrapLine(`${high.length} role${high.length===1?'':'s'} ${high.length===1?'is':'are'} flagged high attrition risk (plus ${elevated.length} elevated), representing an estimated $${exposure.toLocaleString()} in replacement cost exposure if they leave.`));
+  lines.push('');
+  lines.push(`KEY METRICS`);
+  lines.push('-'.repeat(60));
+  lines.push(`  HEADCOUNT                     ${staff.length}`);
+  lines.push(`  AVG PERFORMANCE               ${avgPerf} / 5.0  (company: ${companyAvgPerf})`);
+  lines.push(`  AVG ENGAGEMENT                ${avgEng} / 100  (company: ${companyAvgEngagement})`);
+  lines.push(`  ATTRITION (annualized est.)   ${attritionRate}%  (prior period: ${attritionPrev}%)`);
+  lines.push(`  HIGH ATTRITION-RISK HEADCOUNT ${high.length}  ·  ELEVATED ${elevated.length}`);
+  lines.push('');
+  lines.push(`TREND ANALYSIS — ENGAGEMENT`);
+  lines.push('-'.repeat(60));
+  lines.push('  '+rangeMonths().map((m,i)=>`${m} ${engTrend[i]}`).join('   '));
+  lines.push(`  Net change over period: ${engDelta>=0?'+':''}${engDelta} pts${spikeMonth?`  ·  largest single-month move: ${spikeMonth} (${spikeMag>=0?'+':''}${spikeMag})`:''}`);
+  lines.push('');
+  lines.push(`FINANCIAL EXPOSURE — REPLACEMENT COST & TIME-TO-FILL`);
+  lines.push('-'.repeat(60));
+  lines.push(`  Estimated replacement cost exposure    $${exposure.toLocaleString()}`);
+  lines.push(`  Open requisitions in scope              ${reqs.length}`);
+  if(reqs.length) lines.push(`  Avg. time to fill                       ${avgDaysOpen}d  (benchmark ${avgBenchmark}d)  ·  ${overBenchmark.length} running past benchmark`);
+  lines.push('  Illustrative, simulated figures — not tied to real compensation or requisition data.');
   lines.push('');
   lines.push(`TOP ATTRITION-RISK HOTSPOTS`);
   lines.push('-'.repeat(60));
-  high.sort((a,b)=>b.attritionRisk-a.attritionRisk).slice(0,8).forEach(e=>{
+  high.slice().sort((a,b)=>b.attritionRisk-a.attritionRisk).slice(0,8).forEach(e=>{
     lines.push(`  ${e.name.padEnd(24)} ${e.title.padEnd(26)} risk ${e.attritionRisk}`);
   });
   if(!high.length) lines.push('  None flagged in this scope.');
   lines.push('');
+  let sug=[];
   if(mgrsInScope && mgrsInScope.length){
     lines.push(`MANAGER COACHING RECOMMENDATIONS`);
     lines.push('-'.repeat(60));
-    const sug=coachingSuggestions(mgrsInScope.map(m=>m.deptId).filter((v,i,a)=>a.indexOf(v)===i)).filter(s=>mgrsInScope.includes(s.mgr));
-    if(sug.length){ sug.slice(0,6).forEach(s=>lines.push(`  [${s.priority}] ${s.mgr.name} — ${s.type}: ${s.text}`)); }
+    sug=coachingSuggestions(mgrsInScope.map(m=>m.deptId).filter((v,i,a)=>a.indexOf(v)===i)).filter(s=>mgrsInScope.includes(s.mgr));
+    if(sug.length){ sug.slice(0,6).forEach(s=>lines.push(wrapLine(`[${s.priority}] ${s.mgr.name} — ${s.type}: ${s.text}`))); }
     else lines.push('  No active coaching flags.');
     lines.push('');
   }
@@ -1631,12 +1873,22 @@ function buildExecReport(scopeLabel, staff, mgrsInScope, extra){
   lines.push('-'.repeat(60));
   perfBandCounts.forEach(p=>lines.push(`  ${p.band.padEnd(22)} ${p.count} (${round1(p.count/TOTAL_HC*100)}%)`));
   lines.push('');
+  lines.push(`RECOMMENDED FOCUS THIS PERIOD`);
+  lines.push('-'.repeat(60));
+  const focus=[];
+  if(high.length) focus.push(`Address the ${high.length} high-risk role(s) above before the ~$${exposure.toLocaleString()} exposure is realized.`);
+  if(engDelta<=-3) focus.push(`Investigate the ${Math.abs(engDelta)}-pt engagement decline${spikeMonth?` around ${spikeMonth}`:''}.`);
+  if(overBenchmark.length) focus.push(`${overBenchmark.length} open req${overBenchmark.length===1?'':'s'} running past the time-to-fill benchmark — review sourcing bottlenecks.`);
+  if(sug.filter(s=>s.priority==='High').length) focus.push(`${sug.filter(s=>s.priority==='High').length} high-priority coaching flag(s) above need attention this cycle.`);
+  if(!focus.length) focus.push('No urgent flags this period — maintain current cadence.');
+  focus.slice(0,4).forEach((f,i)=>lines.push(wrapLine(`${i+1}. ${f}`)));
+  lines.push('');
   lines.push(`Prepared by Tap In — AI-driven and agentic people analytics and workflow amplifier.`);
   lines.push(`This report uses simulated demo data and is not connected to a live HRIS.`);
   return lines.join('\n');
 }
-function reportSection(scopeLabel, staff, mgrsInScope, extra){
-  const text=buildExecReport(scopeLabel, staff, mgrsInScope, extra);
+function reportSection(scopeLabel, staff, mgrsInScope, deptIds, extra){
+  const text=buildExecReport(scopeLabel, staff, mgrsInScope, deptIds, extra);
   window.__lastReport=text;
   window.__lastReportScope=scopeLabel;
   window.__lastReportRows=staff.filter(e=>!e.isDirector).map(e=>[e.name,e.title,DEPTS.find(d=>d.id===e.deptId).name, empById[e.managerId]?empById[e.managerId].name:'', e.perf, e.perfBand, e.engagement, e.attritionRisk, e.riskBand]);
@@ -1653,10 +1905,64 @@ function reportSection(scopeLabel, staff, mgrsInScope, extra){
   </div>`;
 }
 SECTION_RENDERERS['hrbp:reports']=function(){
-  return reportSection(currentHrbp().name+"'s client groups", hrbpStaff(), hrbpManagers());
+  return reportSection(currentHrbp().name+"'s client groups", hrbpStaff(), hrbpManagers(), hrbpDepts());
 };
 SECTION_RENDERERS['people:reports']=function(){
-  return reportSection('Company-wide', employees.filter(e=>!e.isDirector&&!e.isManager || true), managersFull, {attritionRate:companyAttritionRate});
+  return reportSection('Company-wide', employees.filter(e=>!e.isDirector&&!e.isManager || true), managersFull, DEPTS.map(d=>d.id), {attritionRate:companyAttritionRate});
+};
+
+/* ---------- PEOPLE TEAM: Talent Cost & ROI (CPO / Executive access only) ---------- */
+SECTION_RENDERERS['people:cporoi']=function(){
+  if(state.accessLevel!=='cpo'){
+    return `
+    <div class="section-title-wrap" style="margin-bottom:2px">
+      <h2 class="section-title">Talent cost &amp; ROI</h2>
+      <p class="section-desc">Maps total talent cost to the company's strategic contracts and milestones, against ROI. Restricted to CPO / Executive access.</p>
+    </div>
+    <div class="card" style="text-align:center; padding:40px 20px">
+      <div style="font-size:28px; margin-bottom:8px">🔒</div>
+      <h3 style="font-size:15px; margin-bottom:6px">This section is restricted</h3>
+      <p class="section-desc" style="margin:0 auto 16px; max-width:44ch">Talent cost mapped to strategic contracts and ROI is visible at CPO / Executive access only. Switch access level in the sidebar to view it.</p>
+      <button class="btn primary" id="cpo-unlock">Switch to CPO / Executive access</button>
+    </div>`;
+  }
+  const contracts=STRATEGIC_CONTRACTS.map(c=>({...c, cost:contractTalentCost(c), roi:contractROI(c)}));
+  const totalAllocated=contracts.reduce((s,c)=>s+c.cost,0);
+  const totalValue=contracts.reduce((s,c)=>s+c.value,0);
+  const blendedROI=totalAllocated?round1(totalValue/totalAllocated):0;
+  const pctAllocated=round1(totalAllocated/TOTAL_ANNUAL_PAYROLL*100);
+  return `
+  <div class="section-title-wrap" style="margin-bottom:2px">
+    <h2 class="section-title">Talent cost &amp; ROI</h2>
+    <p class="section-desc">Total talent cost mapped to the company's strategic contracts and milestones, against ROI. All figures illustrative, simulated.</p>
+    <span class="pill warning" style="margin-top:6px"><span class="pdot"></span>CPO / Executive access</span>
+  </div>
+  <div class="kpi-row">
+    <div class="kpi"><div class="label">Total annual talent cost</div><div class="value">$${(TOTAL_ANNUAL_PAYROLL/1e6).toFixed(1)}M</div><div class="subtle">${TOTAL_HC.toLocaleString()} employees, fully loaded base pay</div></div>
+    <div class="kpi"><div class="label">Allocated to strategic initiatives</div><div class="value" style="color:${pctAllocated>60?'var(--warning)':'var(--ink-900)'}">${pctAllocated}%</div><div class="subtle">$${(totalAllocated/1e6).toFixed(1)}M across ${contracts.length} initiatives</div></div>
+    <div class="kpi"><div class="label">Blended ROI</div><div class="value" style="color:${blendedROI>=2?'var(--good)':'var(--ink-900)'}">${blendedROI}×</div><div class="subtle">$${(totalValue/1e6).toFixed(1)}M value ÷ talent cost</div></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>ROI by contract / milestone</h3><span class="hint">Talent cost allocated vs. contract value</span></div>
+    <div class="chart-box" style="height:230px"><canvas id="c-cpo-roi"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Contracts &amp; milestones</h3></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Initiative</th><th>Departments</th><th>Milestone</th><th>Status</th><th>Target</th><th>Talent cost</th><th>Contract value</th><th>ROI</th></tr></thead>
+      <tbody>${contracts.map(c=>`
+        <tr>
+          <td class="name">${c.id} <span class="subtle">· ${esc(c.name)}</span></td>
+          <td>${c.deptIds.map(id=>deptLinkFn(id,DEPTS.find(d=>d.id===id).name)).join(', ')}</td>
+          <td class="subtle">${esc(c.milestone)}</td>
+          <td>${c.status==='On track'?'<span class="pill good"><span class="pdot"></span>On track</span>':c.status==='At risk'?'<span class="pill warning"><span class="pdot"></span>At risk</span>':'<span class="pill critical"><span class="pdot"></span>Delayed</span>'}</td>
+          <td class="tabular">${esc(c.targetDate)}</td>
+          <td class="tabular">$${(c.cost/1e6).toFixed(2)}M</td>
+          <td class="tabular">$${(c.value/1e6).toFixed(2)}M</td>
+          <td class="tabular" style="font-weight:700; color:${c.roi>=2?'var(--good)':(c.roi>=1?'var(--ink-900)':'var(--critical)')}">${c.roi}×</td>
+        </tr>`).join('')}</tbody></table></div>
+    <p class="hint" style="margin-top:10px">Talent cost = allocated share of each contributing department's payroll. ROI = contract value ÷ talent cost allocated. Departments can carry allocation across multiple initiatives at once.</p>
+  </div>`;
 };
 
 /* ---------- PEOPLE TEAM: Overview ---------- */
@@ -2274,7 +2580,39 @@ function compBenefitsSection(){
           <div class="amp-meta"><span class="amp-badge" style="${r.severity==='High'?'background:var(--critical-soft);color:var(--critical)':r.severity==='Medium'?'background:var(--warning-soft);color:var(--warning)':''}">${esc(r.severity)} severity</span></div>
         </div>
       </div>`).join(''):'<div class="empty-note">No comp or budget risks flagged in this scope right now.</div>'}
-  </div>`;
+  </div>
+  ${(()=>{
+    const exposure=replacementExposure(staff);
+    const atRisk=staff.filter(e=>e.riskBand==='High'||e.riskBand==='Elevated');
+    const reqs=reqsInScope(deptIds);
+    const avgDaysOpen=reqs.length?Math.round(avg(reqs.map(r=>r.daysOpen))):0;
+    const avgBenchmark=reqs.length?Math.round(avg(reqs.map(r=>r.benchmark))):0;
+    const overBenchmark=reqs.filter(r=>r.daysOpen>r.benchmark);
+    return `
+    <div class="section-title-wrap" style="margin-bottom:2px; margin-top:6px">
+      <h2 class="section-title" style="font-size:20px">Cost of replacement &amp; time-to-fill</h2>
+      <p class="section-desc">What it would cost to backfill today's at-risk roles, set against how long the current requisition funnel is actually taking. Illustrative, simulated data.</p>
+    </div>
+    <div class="kpi-row">
+      <div class="kpi"><div class="label">Replacement cost exposure</div><div class="value" style="color:${exposure?'var(--critical)':'var(--ink-900)'}">$${exposure.toLocaleString()}</div><div class="subtle">${atRisk.length} high/elevated-risk roles in scope</div></div>
+      <div class="kpi"><div class="label">Avg. time to fill</div><div class="value" style="color:${avgDaysOpen>avgBenchmark?'var(--warning)':'var(--ink-900)'}">${avgDaysOpen}<span class="unit">days</span></div><div class="subtle">vs. ${avgBenchmark}-day benchmark</div></div>
+      <div class="kpi"><div class="label">Open requisitions</div><div class="value">${reqs.length}</div><div class="subtle">${overBenchmark.length} running past benchmark</div></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h3>Current funnel activity</h3><span class="hint">${reqs.length} open reqs in scope</span></div>
+      ${reqs.length?`<div class="table-wrap"><table><thead><tr><th>Req</th><th>Dept</th><th>Level</th><th>Stage</th><th>Pipeline</th><th>Days open</th><th>vs. benchmark</th></tr></thead>
+      <tbody>${reqs.slice().sort((a,b)=>b.daysOpen-a.daysOpen).map(r=>`
+        <tr data-dept="${r.deptId}">
+          <td class="name">${esc(r.id)} <span class="subtle">· ${esc(r.title)}</span></td>
+          <td>${deptLinkFn(r.deptId,DEPTS.find(d=>d.id===r.deptId).name)}</td>
+          <td>${esc(r.level)}</td>
+          <td><span class="pill neutral">${esc(r.stage)}</span></td>
+          <td class="tabular">${r.candidatesInPipeline}</td>
+          <td class="tabular" style="color:${r.daysOpen>r.benchmark?'var(--warning)':'var(--ink-700)'}">${r.daysOpen}d</td>
+          <td class="subtle">${r.daysOpen>r.benchmark?`+${r.daysOpen-r.benchmark}d over ${r.benchmark}d`:`${r.benchmark-r.daysOpen}d under ${r.benchmark}d`}</td>
+        </tr>`).join('')}</tbody></table></div>`:'<div class="empty-note">No open requisitions in this scope right now.</div>'}
+    </div>`;
+  })()}`;
 }
 SECTION_RENDERERS['hrbp:comp']=compBenefitsSection;
 SECTION_RENDERERS['people:comp']=compBenefitsSection;
@@ -2510,8 +2848,16 @@ function wireSectionInteractions(){
   }
   if(key==='manager:pulse'){
     const mgr=currentManager();
-    lineChart('c-mgr-pulse-full',['P1','P2','P3','P4','P5','P6'],[{label:'Engagement',data:mgr.engagementSpark,color:cssv('--accent')}],{max:100});
+    const companyLast6=companyEngagementSeries.slice(-6);
+    lineChart('c-mgr-pulse-full',['P1','P2','P3','P4','P5','P6'],[
+      {label:'Your team',data:mgr.engagementSpark,color:cssv('--accent')},
+      {label:'Company',data:companyLast6,color:cssv('--ink-300'),dashed:true,fill:false,points:false},
+    ],{max:100});
     barChart('c-mgr-attr',['M-5','M-4','M-3','M-2','M-1','Now'],mgr.attritionSpark,mgr.attritionSpark.map(()=>cssv('--cat-4')));
+    managerAgg(mgr).team.forEach(e=>{
+      const canvas=document.getElementById('emp-spark-'+e.id);
+      if(canvas) sparkline('emp-spark-'+e.id, e.engagementHistory, canvas.dataset.spikeColor||cssv('--ink-300'));
+    });
   }
   if(key==='manager:amplifier'){
     document.querySelectorAll('[data-toggle]').forEach(b=>b.addEventListener('click',()=>{
@@ -2622,6 +2968,15 @@ function wireSectionInteractions(){
   }
   if(key==='people:orgchart'){
     document.getElementById('orgchart-metric').addEventListener('change',e=>{state.orgchartMetric=e.target.value; renderAll();});
+  }
+  if(key==='people:cporoi'){
+    const unlock=document.getElementById('cpo-unlock');
+    if(unlock) unlock.addEventListener('click',()=>{state.accessLevel='cpo'; renderAll();});
+    const canvas=document.getElementById('c-cpo-roi');
+    if(canvas){
+      const contracts=STRATEGIC_CONTRACTS.map(c=>({...c,cost:contractTalentCost(c),roi:contractROI(c)}));
+      barChart('c-cpo-roi', contracts.map(c=>c.id), contracts.map(c=>c.roi), contracts.map(c=>c.roi>=2?cssv('--good'):(c.roi>=1?cssv('--accent'):cssv('--critical'))));
+    }
   }
   if(key==='hrbp:scenario'||key==='people:scenario'){
     document.getElementById('sc-dept').addEventListener('change',e=>{state.scenario.dept=e.target.value; renderAll();});
@@ -2842,6 +3197,13 @@ const AI_TOOLS=[
         wouldRecommendPct: round1(EXIT_RECORDS.filter(r=>r.wouldRecommend==='Yes').length/EXIT_RECORDS.length*100),
         topReasons: Object.entries(byReason).sort((a,b)=>b[1]-a[1]).map(([reason,count])=>({reason,count})),
       };
+    }},
+  {name:'get_talent_cost_roi', description:'Get total talent cost mapped to strategic contracts/milestones and their ROI. Restricted to CPO / Executive access level — returns an access-denied note otherwise.',
+    inputSchema:{type:'object',properties:{}},
+    execute:async()=>{
+      if(state.accessLevel!=='cpo') return {error:'Access denied. This data is restricted to CPO / Executive access. The current viewer has not switched to that access level.'};
+      const contracts=STRATEGIC_CONTRACTS.map(c=>({id:c.id,name:c.name,cost:contractTalentCost(c),value:c.value,roi:contractROI(c),status:c.status,targetDate:c.targetDate}));
+      return {totalAnnualTalentCost:TOTAL_ANNUAL_PAYROLL, contracts};
     }},
 ];
 const POLICY_TOOLS=[
