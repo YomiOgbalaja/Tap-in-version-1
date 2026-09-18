@@ -869,7 +869,18 @@ function coachingSuggestions(scopeDeptIds){
     }
   });
   const order={High:0,Medium:1,Low:2};
-  return out.sort((a,b)=>order[a.priority]-order[b.priority]);
+  out.sort((a,b)=>order[a.priority]-order[b.priority]);
+  if(out.length) return out;
+  // No manager crossed a hard threshold this cycle — still surface real, data-grounded check-ins
+  // (closest-to-watch managers) instead of leaving the queue blank.
+  return mgrs.slice().sort((a,b)=>{
+    const aggA=managerAgg(a), aggB=managerAgg(b);
+    return (aggA.avgPerf-aggB.avgPerf) || (aggA.avgEngagement-aggB.avgEngagement);
+  }).slice(0,3).map(m=>{
+    const agg=managerAgg(m);
+    return {mgr:m,priority:'Low',type:'Calibration coaching',
+      text:`No red flags this cycle — team performance ${agg.avgPerf}/5.0 and engagement ${agg.avgEngagement}/100 are within normal range. Worth a light-touch check-in with ${m.name.split(' ')[0]} to keep momentum.`};
+  });
 }
 
 /* workflow amplifier suggestions (manager view, "you" scoped) */
@@ -905,6 +916,8 @@ const state={
   agentRuns:{},
   agentBusy:false,
   agentTaskDone:{},
+  erMilestoneOverrides:{},
+  completionAlertDrafts:{},
   orgDiagRuns:{},
   orgDiagBusy:false,
   alertDrafts:{},
@@ -918,8 +931,8 @@ function rangeMonths(){return rangeSlice(MONTHS);}
 
 const SECTIONS={
   manager:[['overview','Overview'],['roster','Team Roster'],['pulse','Pulse Trends'],['amplifier','Amplifier']],
-  hrbp:[['overview','Overview'],['benchmark','Benchmarking'],['scenario','Scenario Planner'],['attrition','Attrition Watch'],['coaching','Coaching Queue'],['comp','Comp & Benefits'],['ertracker','ER Tracker'],['orgdiag','Org Diagnostics'],['alerts','Alert Center'],['agent','Automation Agent'],['reports','Exec Reports']],
-  people:[['overview','Company Overview'],['orgchart','Org Chart'],['performance','Performance & Ranking'],['workforce','Workforce Planner'],['talent','Talent Planning'],['succession','Succession Planning'],['scenario','Scenario Planner'],['attrition','Attrition Trends'],['exit','Exit Interviews'],['comp','Comp & Benefits'],['ertracker','ER Tracker'],['orgdiag','Org Diagnostics'],['alerts','Alert Center'],['integrations','HRIS Integrations'],['architecture','Data Architecture'],['reports','Exec Reports'],['cporoi','Talent Cost & ROI']],
+  hrbp:[['overview','Overview'],['benchmark','Benchmarking'],['scenario','Scenario Planner'],['attrition','Attrition Watch'],['coaching','Coaching Queue'],['comp','Comp & Benefits'],['ertracker','ER Tracker'],['orgdiag','Org Diagnostics'],['alerts','Alert Center'],['agent','Automation Agent / Amplifier'],['reports','Exec Reports']],
+  people:[['overview','Company Overview'],['orgchart','Org Chart'],['performance','Performance & Ranking'],['workforce','Workforce Planner'],['talent','Talent Planning'],['succession','Succession Planning'],['scenario','Scenario Planner'],['attrition','Attrition Trends'],['exit','Exit Interviews'],['comp','Comp & Benefits'],['ertracker','ER Tracker'],['orgdiag','Org Diagnostics'],['alerts','Alert Center'],['completion','Completion Tracking'],['integrations','HRIS Integrations'],['architecture','Data Architecture'],['reports','Exec Reports'],['cporoi','Talent Cost & ROI']],
 };
 const ROLE_META={
   manager:{label:'Manager / Partner', icon:'👤'},
@@ -1107,11 +1120,12 @@ function openCaseDetail(id){
         <tr><td class="subtle">SLA due</td><td>${esc(c.dueDate)}</td></tr>
       </tbody>
     </table></div>
-    <div class="card-head" style="margin-top:14px"><h3 style="font-size:13.5px">SOP milestones</h3></div>
-    <div style="display:flex;flex-direction:column;gap:6px">
-      ${c.sopMilestones.map(s=>`<div class="risk-flag-row"><span class="pill ${s.done?'good':'neutral'}"><span class="pdot"></span>${s.done?'Done':'Pending'}</span> ${esc(s.name)}</div>`).join('')}
+    <div class="card-head" style="margin-top:14px"><h3 style="font-size:13.5px">SOP milestones</h3><span class="hint" id="sop-pct-${c.id}">${erCaseCompletionPct(c)}% complete</span></div>
+    <div id="sop-milestones-${c.id}" style="display:flex;flex-direction:column;gap:6px">
+      ${renderSopMilestones(c)}
     </div>
-    <p class="hint" style="margin-top:12px">De-identified by design — no individual names are stored on this case.</p>`;
+    <p class="hint" style="margin-top:6px">Click a step to check it off — it feeds the ER completion report in the People Team view.</p>
+    <p class="hint" style="margin-top:6px">De-identified by design — no individual names are stored on this case.</p>`;
   openModal(c.id, esc(c.category), body, {type:'case',id});
 }
 
@@ -1121,9 +1135,10 @@ function handleDrillClick(e){
   // more specific link inside it (e.g. a department cell's data-dept) exists
   // closer to the click; .closest() on the combined selector always resolves
   // to whichever is nearer, so the specific inner link correctly wins.
-  const el=e.target.closest('[data-emp],[data-mgr],[data-dept],[data-case],[data-nav]');
+  const el=e.target.closest('[data-emp],[data-mgr],[data-dept],[data-case],[data-nav],[data-milestone]');
   if(!el) return;
-  if(el.dataset.emp) openEmployeeDetail(el.dataset.emp);
+  if(el.dataset.milestone) toggleErMilestone(el.dataset.milestone);
+  else if(el.dataset.emp) openEmployeeDetail(el.dataset.emp);
   else if(el.dataset.mgr) openManagerDetail(el.dataset.mgr);
   else if(el.dataset.dept) openDeptDetail(el.dataset.dept);
   else if(el.dataset.case) openCaseDetail(el.dataset.case);
@@ -1219,6 +1234,7 @@ function railIcon(name){
     orgchart:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2.5" width="6" height="5" rx="1.3"/><rect x="2.5" y="16.5" width="6" height="5" rx="1.3"/><rect x="9.5" y="16.5" width="5" height="5" rx="1.3"/><rect x="16.5" y="16.5" width="5" height="5" rx="1.3"/><path d="M12 7.5v4M5.5 16.5v-3a1 1 0 0 1 1-1h11a1 1 0 0 1 1 1v3M12 12.5v4"/></svg>',
     scenario:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="3" width="19" height="18" rx="1.6"/><path d="M6.5 17l3.5-5 3 3 4.5-7" stroke-dasharray="1 2.4"/><circle cx="17.5" cy="8" r="1.3" fill="currentColor" stroke="none"/></svg>',
     cporoi:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10.5" width="16" height="10.5" rx="2"/><path d="M7.5 10.5V7a4.5 4.5 0 0 1 9 0v3.5"/><path d="M12 14.5v3" stroke-linecap="round"/></svg>',
+    completion:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M7 2v4M17 2v4M3 9.5h18"/><path d="M7.5 14l2.3 2.3L16.5 12"/></svg>',
   };
   return icons[name]||'';
 }
@@ -1707,14 +1723,16 @@ SECTION_RENDERERS['hrbp:agent']=function(){
   return `
   <div class="card agent-intro">
     <div class="card-head">
-      <h3>Tap In Automation Agent</h3>
+      <h3>Tap In Automation Agent / Amplifier</h3>
       <span class="hint">Autonomous · reads live client-group data</span>
     </div>
     <p class="section-desc" style="margin:0 0 14px">
-      Runs across ${esc(hrbp.name)}'s client groups, pulls current performance, engagement and
-      attrition signals through Tap In's own data tools, and drafts a ready-to-act plan — this
-      week's priorities, manager coaching actions, stay-interview candidates, and outreach drafts
-      you can copy straight into email or Slack.
+      Runs across ${esc(hrbp.name)}'s client groups as a deep, multi-skilled HR operations partner:
+      this week's priorities, manager coaching actions, stay-interview candidates and outreach drafts,
+      plus scenario planning, organizational planning &amp; headcount modeling, executive coaching &amp;
+      leadership development, performance management &amp; calibration logic, change management &amp;
+      internal communications, and employee relations trend analysis — every read pulled through
+      Tap In's own data tools, never invented.
     </p>
     <button class="btn ask" id="run-agent-btn" ${state.agentBusy?'disabled':''}>
       ${state.agentBusy?'⏳ Agent is working…':(run?'⚡ Re-run this week’s agent':'⚡ Run this week’s agent')}
@@ -1723,11 +1741,56 @@ SECTION_RENDERERS['hrbp:agent']=function(){
   </div>
   <div id="agent-output">${run?renderAgentRun(run):`<div class="empty-note">No agent run yet this session. Click "Run this week's agent" — it will call into the same live data as the dashboards above and come back with a concrete plan.</div>`}</div>`;
 };
+const AGENT_MODULE_META=[
+  {key:'scenarioPlanning', icon:'🧮', label:'Scenario planning'},
+  {key:'orgPlanning', icon:'🗂️', label:'Organizational planning & headcount modeling'},
+  {key:'leadershipDev', icon:'🎯', label:'Executive coaching & leadership development'},
+  {key:'calibration', icon:'📐', label:'Performance management & calibration logic'},
+  {key:'changeMgmt', icon:'📣', label:'Change management & internal communications'},
+  {key:'erTrends', icon:'⚖️', label:'Employee relations trend analysis'},
+];
+function agentModuleCard(meta,items){
+  return `<div class="card">
+    <div class="card-head"><h3>${meta.icon} ${esc(meta.label)}</h3></div>
+    <ol class="priority-list">
+      ${(items||[]).map(it=>`<li><strong>${esc(it.title||'')}</strong><div class="subtle">${esc(it.detail||it.rationale||'')}</div></li>`).join('')||'<li class="subtle">Nothing to flag this cycle.</li>'}
+    </ol>
+  </div>`;
+}
+/* Auto-populated automation-queue tasks, derived fresh from a run every render — task ids are
+   namespaced by hrbpId so completion state never bleeds across HRBPs or across re-runs, and each
+   task carries its owning manager so completion can be rolled up per-manager and reported on. */
+function computeAgentTasks(run){
+  if(!run) return [];
+  const hrbpId=run.hrbpId||'unknown';
+  const maTasks=(run.managerActions||[]).map((a,i)=>{
+    const mgr=(a.managerId&&empById[a.managerId]) || managersFull.find(m=>m.name===a.manager) || null;
+    return {id:hrbpId+':ma'+i, kind:'Manager action', title:`${a.manager||'Manager'}: ${a.action||''}`, meta:a.priority||'Medium priority',
+      managerId: mgr?mgr.id:null, managerName: a.manager||(mgr?mgr.name:'Unknown manager'), priority:a.priority||'Medium', hrbpId};
+  });
+  const siTasks=(run.stayInterviews||[]).map((s,i)=>{
+    const emp=s.employeeId&&empById[s.employeeId]?empById[s.employeeId]:null;
+    const mgr=emp&&emp.managerId&&empById[emp.managerId]?empById[emp.managerId]:null;
+    return {id:hrbpId+':si'+i, kind:'Stay interview', title:`Stay interview — ${s.employee||'Employee'}`, meta:s.reason||'',
+      managerId: mgr?mgr.id:null, managerName: mgr?mgr.name:'Unassigned', priority:'High', hrbpId};
+  });
+  return [...maTasks, ...siTasks];
+}
+function agentCompletionByManager(tasks){
+  const byMgr={};
+  tasks.forEach(t=>{
+    const key=t.managerId||('name:'+t.managerName);
+    if(!byMgr[key]) byMgr[key]={managerId:t.managerId,managerName:t.managerName,total:0,done:0};
+    byMgr[key].total++;
+    if(state.agentTaskDone[t.id]) byMgr[key].done++;
+  });
+  return Object.values(byMgr).sort((a,b)=>(b.total-b.done)-(a.total-a.done));
+}
 function renderAgentRun(run){
-  const tasks=[
-    ...(run.managerActions||[]).map((a,i)=>({id:'ma'+i, title:`${a.manager||'Manager'}: ${a.action||''}`, meta:a.priority||'Medium priority'})),
-    ...(run.stayInterviews||[]).map((s,i)=>({id:'si'+i, title:`Stay interview — ${s.employee||'Employee'}`, meta:s.reason||''})),
-  ];
+  const tasks=computeAgentTasks(run);
+  const doneCount=tasks.filter(t=>state.agentTaskDone[t.id]).length;
+  const completionPct=tasks.length?round1(doneCount/tasks.length*100):0;
+  const byManager=agentCompletionByManager(tasks);
   return `
   <div class="grid2">
     <div class="card">
@@ -1737,7 +1800,7 @@ function renderAgentRun(run){
       </ol>
     </div>
     <div class="card">
-      <div class="card-head"><h3>Automation queue</h3><span class="hint">Auto-populated by the agent</span></div>
+      <div class="card-head"><h3>Automation queue</h3><span class="hint">${doneCount} of ${tasks.length} complete · ${completionPct}%</span></div>
       <div id="agent-queue">${tasks.length?tasks.map(t=>{
         const done=!!state.agentTaskDone[t.id];
         return `<div class="amp-card ${done?'done':''}" data-task="${t.id}">
@@ -1752,6 +1815,16 @@ function renderAgentRun(run){
     </div>
   </div>
   <div class="card">
+    <div class="card-head"><h3>Manager nudge completion</h3><span class="hint">Who's actioning their automation-queue tasks this cycle</span></div>
+    ${byManager.length?`<div class="table-wrap"><table><thead><tr><th>Manager</th><th>Tasks assigned</th><th>Completed</th><th>Completion</th></tr></thead>
+      <tbody>${byManager.map(m=>`<tr>
+        <td class="name">${m.managerId?mgrLink(m.managerId,m.managerName):esc(m.managerName)}</td>
+        <td class="tabular">${m.total}</td>
+        <td class="tabular">${m.done}</td>
+        <td>${barCell(m.total?round1(m.done/m.total*100):0,100,m.total&&m.done===m.total?'var(--good)':(m.done===0&&m.total?'var(--critical)':'var(--accent)'))}</td>
+      </tr>`).join('')}</tbody></table></div>`:'<div class="empty-note">No manager-attributed tasks yet.</div>'}
+  </div>
+  <div class="card">
     <div class="card-head"><h3>Draft outreach</h3><span class="hint">Copy and send from your own email or Slack</span></div>
     ${(run.draftMessages||[]).map((m,i)=>`
       <div class="draft-msg">
@@ -1759,30 +1832,218 @@ function renderAgentRun(run){
         ${m.subject?`<div class="draft-subject">${esc(m.subject)}</div>`:''}
         <pre class="draft-body">${esc(m.body||'')}</pre>
       </div>`).join('')||'<div class="empty-note">No drafts returned.</div>'}
+  </div>
+  <div class="section-title-wrap" style="margin:6px 0 -4px">
+    <h2 class="section-title" style="font-size:16px">Deeper HR operations modules</h2>
+    <p class="section-desc">Six additional skill areas the agent reasons over every run, grounded in this client group's real data.</p>
+  </div>
+  <div class="grid3">
+    ${AGENT_MODULE_META.map(meta=>agentModuleCard(meta,run[meta.key])).join('')}
   </div>`;
+}
+/* Deterministic fallback/base for the Automation Agent — always grounded in this workspace's
+   own simulated data, so the agent never comes back blank even when the AI capability isn't
+   available (e.g. viewed outside the Claude Artifact host) or a model call fails. */
+function buildLocalAgentRun(hrbp){
+  const staff=hrbpStaff();
+  const mgrs=hrbpManagers();
+  const coaching=coachingSuggestions(hrbpDepts());
+  const atRisk=staff.filter(e=>e.riskBand!=='Low').slice().sort((a,b)=>b.attritionRisk-a.attritionRisk);
+  const lowPerf=staff.filter(e=>e.perf<3.1).slice().sort((a,b)=>a.perf-b.perf);
+
+  const priorities=[];
+  if(atRisk.length){
+    const highCount=atRisk.filter(e=>e.riskBand==='High').length;
+    const n=highCount||atRisk.length;
+    const band=(highCount?'High':atRisk[0].riskBand).toLowerCase();
+    priorities.push({title:`${n} ${band}-risk report${n===1?'':'s'} need${n===1?'s':''} a stay conversation this week`,
+      rationale:`Top signal: ${atRisk[0].name} (${atRisk[0].title}) — risk score ${atRisk[0].attritionRisk}, engagement ${atRisk[0].engagement}/100.`});
+  }
+  if(coaching.length){
+    priorities.push({title:`${coaching[0].mgr.name.split(' ')[0]}'s team needs ${coaching[0].type.toLowerCase()}`, rationale:coaching[0].text});
+  }
+  if(lowPerf.length){
+    const mgrName=empById[lowPerf[0].managerId]?empById[lowPerf[0].managerId].name.split(' ')[0]:'their manager';
+    priorities.push({title:`${lowPerf.length} team member${lowPerf.length===1?'':'s'} below the performance bar`,
+      rationale:`${lowPerf[0].name} is at ${lowPerf[0].perf}/5.0 (company avg ${companyAvgPerf}) — worth a calibration conversation with ${mgrName} ahead of the next cycle.`});
+  }
+  while(priorities.length<3){
+    priorities.push({title:'Client group is broadly healthy this cycle',
+      rationale:`Avg performance ${round1(avg(staff.map(e=>e.perf)))}/5.0, avg engagement ${Math.round(avg(staff.map(e=>e.engagement)))}/100 — keep watching the pulse trend for early signal.`});
+  }
+  priorities.length=3;
+
+  const managerActions=coaching.slice(0,5).map(c=>({manager:c.mgr.name,managerId:c.mgr.id,action:c.text,priority:c.priority}));
+  for(const m of mgrs){
+    if(managerActions.length>=5) break;
+    if(managerActions.some(a=>a.manager===m.name)) continue;
+    const agg=managerAgg(m);
+    managerActions.push({manager:m.name,managerId:m.id,action:`No red flags this cycle — a light-touch check-in keeps momentum (team perf ${agg.avgPerf}/5.0, engagement ${agg.avgEngagement}/100).`,priority:'Medium'});
+  }
+
+  const stayInterviews=atRisk.slice(0,4).map(e=>({employee:e.name,employeeId:e.id,reason:`${e.riskBand} attrition risk (score ${e.attritionRisk}) · engagement ${e.engagement}/100 · ${e.title}`}));
+  if(!stayInterviews.length && staff.length){
+    const e=staff.slice().sort((a,b)=>a.engagement-b.engagement)[0];
+    stayInterviews.push({employee:e.name,employeeId:e.id,reason:`Lowest engagement in scope this cycle (${e.engagement}/100), risk band Low — still worth a light-touch check-in.`});
+  }
+
+  const draftMessages=[];
+  if(coaching.length){
+    const c=coaching[0];
+    draftMessages.push({channel:'Slack',to:c.mgr.name,subject:`Coaching nudge — ${c.type}`,
+      body:`Hi ${c.mgr.name.split(' ')[0]} — flagging this from this week's Tap In review: ${c.text} Could we grab 15 minutes this week to talk through next steps?`});
+  }
+  const stayTarget=atRisk[0]||staff[0];
+  if(stayTarget){
+    draftMessages.push({channel:'Email',to:stayTarget.name,subject:'Checking in',
+      body:`Hi ${stayTarget.name.split(' ')[0]} — I'd love to grab 20 minutes this week for a quick check-in on how things are going and what would make your role even better. No agenda beyond hearing from you — does Thursday or Friday work?`});
+  }
+  if(draftMessages.length<2 && mgrs.length){
+    const m=mgrs[0];
+    draftMessages.push({channel:'Email',to:m.name,subject:'Weekly check-in',
+      body:`Hi ${m.name.split(' ')[0]} — no red flags on the dashboard this week for your team. Keep up the good work, and flag anything you're seeing on the ground that the data might be missing.`});
+  }
+  draftMessages.length=Math.min(draftMessages.length,2);
+
+  return {priorities,managerActions,stayInterviews,draftMessages, ...buildAgentModules(hrbp,staff,mgrs)};
+}
+/* The six deeper autonomous modules — Scenario Planning, Organizational Planning & Headcount
+   Modeling, Executive Coaching & Leadership Development, Performance Management & Calibration
+   Logic, Change Management & Internal Communications, and Employee Relations Trend Analysis —
+   each grounded directly in this workspace's own simulated data. */
+function buildAgentModules(hrbp,staff,mgrs){
+  const depts=hrbpDepts();
+
+  const scenarioPlanning=(()=>{
+    const avgSalary=staff.length?Math.round(avg(staff.map(e=>e.baseSalary))):0;
+    const atRiskN=staff.filter(e=>e.riskBand!=='Low').length;
+    const currentAttrition=round1(avg(depts.map(id=>deptAgg.find(d=>d.id===id).attritionRate)))||0;
+    const retained=round1(staff.length*currentAttrition*0.15/100);
+    const savings=Math.round(retained*avgSalary*0.5);
+    return [{title:'Retention-focused scenario',
+      detail:`Modeling a 15% lift in retention actions (stay interviews + comp review) across ${depts.length} client group${depts.length===1?'':'s'} for the ${atRiskN} at-risk report${atRiskN===1?'':'s'} projects ~${retained} avoided departure${retained===1?'':'s'} and ~$${savings.toLocaleString()} in avoided replacement cost this year. Adjust assumptions in the What-If Scenario Planner.`}];
+  })();
+
+  const orgPlanning=(()=>{
+    const reqs=reqsInScope(depts);
+    const items=[];
+    if(reqs.length){
+      const overBenchmark=reqs.filter(r=>r.daysOpen>r.benchmark);
+      const slowest=reqs.slice().sort((a,b)=>b.daysOpen-a.daysOpen)[0];
+      items.push({title:`${reqs.length} open requisition${reqs.length===1?'':'s'} in scope`,
+        detail:`${overBenchmark.length} of ${reqs.length} are open longer than their time-to-fill benchmark. Slowest: ${slowest.title} at ${slowest.daysOpen} days (benchmark ${slowest.benchmark}).`});
+    }
+    const deptGaps=depts.map(id=>{const d=DEPTS.find(x=>x.id===id); return {d,cur:deptAllStaff(id).length,gap:d.target-deptAllStaff(id).length};}).filter(x=>x.gap!==0).sort((a,b)=>Math.abs(b.gap)-Math.abs(a.gap));
+    if(deptGaps.length){
+      const g=deptGaps[0];
+      items.push({title:`${g.d.name} is ${g.gap>0?`${g.gap} under`:`${Math.abs(g.gap)} over`} its ${g.d.target}-person target`,
+        detail:`Current headcount ${g.cur} vs. target ${g.d.target}. ${g.gap>0?'Consider prioritizing open reqs in this group.':'Confirm the extra headcount is intentional or worth a structure review.'}`});
+    }
+    if(!items.length) items.push({title:'Headcount is on plan', detail:`All ${depts.length} client group${depts.length===1?'':'s'} are at or near target headcount with no open requisitions outstanding.`});
+    return items;
+  })();
+
+  const leadershipDev=(()=>{
+    const items=[];
+    const newMgrs=mgrs.filter(m=>m.tenureMonths<7);
+    if(newMgrs.length){
+      const m=newMgrs[0];
+      items.push({title:`${m.name} is a new manager (${m.tenureMonths} mo. tenure)`,
+        detail:`Leading a ${managerAgg(m).headcount}-person team. Recommend the new-manager coaching cohort and a peer-mentor pairing.`});
+    }
+    const highPot=staff.filter(e=>!e.isManager&&!e.isDirector&&e.potential>=80).sort((a,b)=>b.potential-a.potential);
+    if(highPot.length){
+      items.push({title:`${highPot.length} high-potential contributor${highPot.length===1?'':'s'} ready for a stretch`,
+        detail:`${highPot[0].name} (potential ${highPot[0].potential}/100, ${highPot[0].title}) is the top candidate for a stretch assignment or leadership-track conversation.`});
+    }
+    const lowEngMgrs=mgrs.filter(m=>managerAgg(m).avgEngagement<companyAvgEngagement-6);
+    if(lowEngMgrs.length){
+      const m=lowEngMgrs[0];
+      items.push({title:`${m.name}'s team engagement trails company avg by ${companyAvgEngagement-managerAgg(m).avgEngagement} pts`,
+        detail:`Worth pairing ${m.name.split(' ')[0]} with executive coaching focused on team motivation and listening skills.`});
+    }
+    if(!items.length) items.push({title:'No urgent leadership-development flags', detail:'Managers in scope are within tenure and engagement norms this cycle.'});
+    return items.slice(0,3);
+  })();
+
+  const calibration=(()=>{
+    const items=[];
+    const mgrPerfs=mgrs.map(m=>({m,agg:managerAgg(m)})).filter(x=>x.agg.headcount>=3);
+    if(mgrPerfs.length>=2){
+      const sorted=mgrPerfs.slice().sort((a,b)=>b.agg.avgPerf-a.agg.avgPerf);
+      const high=sorted[0], low=sorted[sorted.length-1];
+      const spread=round1(high.agg.avgPerf-low.agg.avgPerf);
+      if(spread>=0.6){
+        items.push({title:`${spread}-pt rating spread between ${high.m.name.split(' ')[0]} and ${low.m.name.split(' ')[0]}'s teams`,
+          detail:`${high.m.name}'s team averages ${high.agg.avgPerf}/5.0 vs. ${low.m.name}'s ${low.agg.avgPerf}/5.0 — worth a calibration session to confirm this reflects real performance, not rating-anchor drift.`});
+      }
+    }
+    if(staff.length){
+      const farExceeds=staff.filter(e=>e.perfBand==='Far Exceeds').length;
+      if(farExceeds/staff.length>0.25){
+        items.push({title:'Possible rating inflation',
+          detail:`${farExceeds} of ${staff.length} (${round1(farExceeds/staff.length*100)}%) rated "Far Exceeds" this cycle — above a healthy calibration range. Recommend a cross-manager calibration review.`});
+      }
+    }
+    if(!items.length) items.push({title:'Calibration looks healthy', detail:`Performance distribution across ${mgrs.length} manager${mgrs.length===1?'':'s'} is within normal range this cycle.`});
+    return items;
+  })();
+
+  const changeMgmt=(()=>{
+    const spikes=detectSpikes(depts);
+    if(!spikes.length) return [{title:'No communication moments flagged', detail:'No significant engagement or attrition spikes in scope this cycle — steady-state comms cadence is fine.'}];
+    return spikes.slice(0,2).map(s=>({title:`${s.metric} — ${s.dept}`,
+      detail:`${s.text} Recommend a proactive team communication (all-hands note or team huddle) before the next pulse survey to get ahead of the narrative.`}));
+  })();
+
+  const erTrends=(()=>{
+    const cases=ER_CASES.filter(c=>depts.includes(c.deptId));
+    if(!cases.length) return [{title:'No ER cases in scope', detail:'No open or recent Employee Relations cases for these client groups.'}];
+    const open=cases.filter(c=>c.stage!=='Closed');
+    const breached=cases.filter(c=>c.status==='Breached');
+    const byTheme={}; cases.forEach(c=>{byTheme[c.theme]=(byTheme[c.theme]||0)+1;});
+    const topTheme=Object.entries(byTheme).sort((a,b)=>b[1]-a[1])[0];
+    const items=[{title:`${open.length} open case${open.length===1?'':'s'} in scope`,
+      detail:`${breached.length} breached SLA. Most recurring theme: "${topTheme[0]}" (${topTheme[1]} case${topTheme[1]===1?'':'s'}). See ER Tracker for case-level detail.`}];
+    if(breached.length){
+      items.push({title:'SLA breach requires escalation',
+        detail:`${breached.length} case${breached.length===1?'':'s'} past due — escalate to qualified HR/Legal review per the Employee Relations Escalation SOP.`});
+    }
+    return items;
+  })();
+
+  return {scenarioPlanning, orgPlanning, leadershipDev, calibration, changeMgmt, erTrends};
 }
 async function runHrbpAgent(){
   if(state.agentBusy) return;
   const hrbp=currentHrbp();
   state.agentBusy=true; renderAll();
+  const local=buildLocalAgentRun(hrbp);
   try{
     const sample=await claude.use('sample');
     if(!sample){
-      state.agentRuns[hrbp.id]={generatedAt:new Date().toLocaleString(), priorities:[{title:'AI assistant isn’t available in this preview context.',rationale:''}], managerActions:[], draftMessages:[], stayInterviews:[]};
+      state.agentRuns[hrbp.id]={...local, generatedAt:new Date().toLocaleString(), hrbpId:hrbp.id};
       return;
     }
-    const sys=`You are the Tap In HRBP Automation Agent, running autonomously for ${hrbp.name}, HR Business Partner for: ${hrbpDepts().map(d=>DEPTS.find(x=>x.id===d).name).join(', ')}. `+
-      `Use the provided tools to pull real figures before writing anything — never invent numbers. All data is simulated demo data, not a real company.\n\n`+
+    const sys=`You are the Tap In HRBP Automation Agent / Amplifier, running autonomously for ${hrbp.name}, HR Business Partner for: ${hrbpDepts().map(d=>DEPTS.find(x=>x.id===d).name).join(', ')}. `+
+      `You act as a deep, multi-skilled HR operations partner covering scenario planning, organizational planning & headcount modeling, executive coaching & leadership development, performance management & calibration logic, change management & internal communications, and employee relations trend analysis. `+
+      `Use the provided tools (including get_headcount_plan, get_leadership_development_signals, get_performance_calibration_signals, and get_recent_alerts) to pull real figures for EVERY section before writing anything — never invent numbers. All data is simulated demo data, not a real company.\n\n`+
       `Produce a JSON object with EXACTLY these keys and nothing else:\n`+
       `{"priorities":[{"title":string,"rationale":string}], // exactly 3, most urgent first\n`+
       ` "managerActions":[{"manager":string,"action":string,"priority":"High"|"Medium"}], // up to 5 concrete next steps for specific managers\n`+
       ` "stayInterviews":[{"employee":string,"reason":string}], // up to 4 highest attrition-risk people worth a proactive conversation\n`+
-      ` "draftMessages":[{"channel":"Email"|"Slack","to":string,"subject":string,"body":string}]} // exactly 2 ready-to-send drafts: one coaching nudge to a manager, one stay-interview invite to an employee\n\n`+
+      ` "draftMessages":[{"channel":"Email"|"Slack","to":string,"subject":string,"body":string}], // exactly 2 ready-to-send drafts: one coaching nudge to a manager, one stay-interview invite to an employee\n`+
+      ` "scenarioPlanning":[{"title":string,"detail":string}], // 1-2 items: a modeled what-if (retention, headcount, or comp move) grounded in real scope data\n`+
+      ` "orgPlanning":[{"title":string,"detail":string}], // 1-2 items: headcount-vs-target and open-requisition read from get_headcount_plan\n`+
+      ` "leadershipDev":[{"title":string,"detail":string}], // 1-2 items: new-manager support, high-potential stretch candidates, or coaching needs from get_leadership_development_signals\n`+
+      ` "calibration":[{"title":string,"detail":string}], // 1-2 items: rating spread or rating-band skew from get_performance_calibration_signals\n`+
+      ` "changeMgmt":[{"title":string,"detail":string}], // 1-2 items: a communication moment from get_recent_alerts, reframed as a change-management recommendation\n`+
+      ` "erTrends":[{"title":string,"detail":string}]} // 1-2 items: open case volume, SLA status, or recurring theme from get_er_tracker_summary\n\n`+
       `Return ONLY the JSON object.`;
     const result=await sample.json(sys,{tools:AI_TOOLS, modelTier:'default'});
-    state.agentRuns[hrbp.id]={...result, generatedAt:new Date().toLocaleString()};
+    state.agentRuns[hrbp.id]={...local, ...result, generatedAt:new Date().toLocaleString(), hrbpId:hrbp.id};
   }catch(err){
-    state.agentRuns[hrbp.id]={generatedAt:new Date().toLocaleString(), priorities:[{title:'The agent run failed.',rationale:(err&&err.message)?err.message:'Unknown error.'}], managerActions:[], draftMessages:[], stayInterviews:[]};
+    state.agentRuns[hrbp.id]={...local, generatedAt:new Date().toLocaleString(), hrbpId:hrbp.id};
   }finally{
     state.agentBusy=false; renderAll();
   }
@@ -2386,6 +2647,34 @@ SECTION_RENDERERS['people:exit']=function(){
 function erScope(){
   return state.role==='hrbp' ? ER_CASES.filter(c=>hrbpDepts().includes(c.deptId)) : ER_CASES;
 }
+/* Trackable SOP-step check-off, overlaid on each case's initial simulated progress so a
+   reviewer can check off real milestones and have that roll up into a completion report. */
+function erMilestoneKey(caseId,idx){ return caseId+'|'+idx; }
+function erMilestoneDone(c,idx){
+  const key=erMilestoneKey(c.id,idx);
+  return state.erMilestoneOverrides.hasOwnProperty(key) ? state.erMilestoneOverrides[key] : c.sopMilestones[idx].done;
+}
+function erCaseDoneCount(c){ return c.sopMilestones.filter((s,idx)=>erMilestoneDone(c,idx)).length; }
+function erCaseCompletionPct(c){ const total=c.sopMilestones.length; return total?round1(erCaseDoneCount(c)/total*100):0; }
+function toggleErMilestone(key){
+  const [caseId,idxStr]=key.split('|'); const idx=+idxStr;
+  const c=ER_CASES.find(x=>x.id===caseId); if(!c) return;
+  const cur=erMilestoneDone(c,idx);
+  state.erMilestoneOverrides[key]=!cur;
+  const container=document.getElementById('sop-milestones-'+caseId);
+  if(container) container.innerHTML=renderSopMilestones(c);
+  const pctEl=document.getElementById('sop-pct-'+caseId);
+  if(pctEl) pctEl.textContent=erCaseCompletionPct(c)+'% complete';
+  renderAll();
+}
+function renderSopMilestones(c){
+  return c.sopMilestones.map((s,idx)=>{
+    const done=erMilestoneDone(c,idx);
+    return `<div class="risk-flag-row milestone-row" data-milestone="${c.id}|${idx}" style="cursor:pointer">
+      <span class="pill ${done?'good':'neutral'}"><span class="pdot"></span>${done?'✓ Done':'○ Pending'}</span> ${esc(s.name)}
+    </div>`;
+  }).join('');
+}
 function erTrackerSection(){
   const cases=erScope();
   const open=cases.filter(c=>c.stage!=='Closed');
@@ -2424,13 +2713,108 @@ function erTrackerSection(){
     <div class="card-head"><h3>Case log</h3><span class="hint">SOP milestone progress per case</span></div>
     <div class="table-wrap"><table><thead><tr><th>Case</th><th>Category</th><th>Theme</th><th>Stage</th><th>SLA status</th><th>SOP progress</th></tr></thead>
     <tbody>${cases.slice().sort((a,b)=>a.daysRemaining-b.daysRemaining).map(c=>{
-      const done=c.sopMilestones.filter(s=>s.done).length;
+      const done=erCaseDoneCount(c);
+      const total=c.sopMilestones.length;
       return `<tr data-case="${c.id}"><td class="name">${caseLink(c.id,c.id)}</td><td>${esc(c.category)}</td><td><span class="pill neutral">${esc(c.theme)}</span></td><td>${esc(c.stage)}</td><td>${statusPill(c.status)}</td>
-      <td>${barCell(done,5,done===5?'var(--good)':'var(--accent)')}</td></tr>`;}).join('')}</tbody></table></div>
+      <td>${barCell(done,total,done===total?'var(--good)':'var(--accent)')}</td></tr>`;}).join('')}</tbody></table></div>
   </div>`;
 }
 SECTION_RENDERERS['hrbp:ertracker']=erTrackerSection;
 SECTION_RENDERERS['people:ertracker']=erTrackerSection;
+
+/* ---------- PEOPLE TEAM: Completion Tracking (Amplifier + ER SOP roll-up) ---------- */
+function completionTrackingSection(){
+  const hrbpRows=HRBPS.map(h=>{
+    const run=state.agentRuns[h.id];
+    const tasks=computeAgentTasks(run);
+    const done=tasks.filter(t=>state.agentTaskDone[t.id]).length;
+    return {hrbp:h, run, tasks, done, total:tasks.length, pct: tasks.length?round1(done/tasks.length*100):null};
+  });
+  const hrbpsWithRuns=hrbpRows.filter(r=>r.run);
+  const totalTasksAll=hrbpRows.reduce((s,r)=>s+r.total,0);
+  const totalDoneAll=hrbpRows.reduce((s,r)=>s+r.done,0);
+  const companyAmplifierPct=totalTasksAll?round1(totalDoneAll/totalTasksAll*100):null;
+
+  const allTasks=hrbpRows.flatMap(r=>r.tasks);
+  const byManager=agentCompletionByManager(allTasks);
+  const laggingManagers=byManager.filter(m=>m.total>0 && m.done===0);
+
+  const totalMilestones=ER_CASES.reduce((s,c)=>s+c.sopMilestones.length,0);
+  const doneMilestones=ER_CASES.reduce((s,c)=>s+erCaseDoneCount(c),0);
+  const erCompletionPct=totalMilestones?round1(doneMilestones/totalMilestones*100):0;
+  const casesFullyDone=ER_CASES.filter(c=>erCaseDoneCount(c)===c.sopMilestones.length).length;
+  const casesBreachedIncomplete=ER_CASES.filter(c=>c.status==='Breached' && erCaseDoneCount(c)<c.sopMilestones.length);
+  const completionAlerts=detectCompletionAlerts();
+  const completionDrafts=state.completionAlertDrafts||{};
+
+  return `
+  <div class="section-title-wrap" style="margin-bottom:2px">
+    <h2 class="section-title">Completion tracking</h2>
+    <p class="section-desc">One comprehensive report rolling up Amplifier task completion by HRBP and by manager, plus Employee Relations SOP milestone completion — company-wide, with automated email nudges for anyone falling behind.</p>
+  </div>
+  <div class="kpi-row">
+    <div class="kpi"><div class="label">Amplifier tasks completed</div><div class="value">${totalDoneAll}<span class="unit">of ${totalTasksAll}</span></div><div class="subtle">${companyAmplifierPct!=null?companyAmplifierPct+'% across '+hrbpsWithRuns.length+' of '+HRBPS.length+' HRBPs':'No agent runs yet this session'}</div></div>
+    <div class="kpi"><div class="label">Managers with zero completion</div><div class="value" style="color:${laggingManagers.length?'var(--critical)':'var(--ink-900)'}">${laggingManagers.length}<span class="unit">of ${byManager.length}</span></div><div class="subtle">Have nudges assigned, none marked done</div></div>
+    <div class="kpi"><div class="label">ER SOP milestones complete</div><div class="value">${doneMilestones}<span class="unit">of ${totalMilestones}</span></div><div class="subtle">${erCompletionPct}% · ${casesFullyDone} of ${ER_CASES.length} cases fully done</div></div>
+  </div>
+  ${casesBreachedIncomplete.length?`<div class="amp-card" style="border-color:var(--critical)"><div class="amp-icon" style="background:var(--critical-soft);color:var(--critical)">⚠</div><div class="amp-body"><div class="amp-title">Escalation required</div><div class="amp-desc">${casesBreachedIncomplete.length} SLA-breached case${casesBreachedIncomplete.length>1?'s':''} still ${casesBreachedIncomplete.length>1?'have':'has'} incomplete SOP milestones — ${casesBreachedIncomplete.map(c=>caseLink(c.id,c.id)).join(', ')}.</div></div></div>`:''}
+  <div class="card">
+    <div class="card-head"><h3>Non-completion alerts</h3><span class="hint">Auto-detected from the completion data above · drafts an email nudge</span></div>
+    ${completionAlerts.length?completionAlerts.map((a,i)=>`
+      <div class="amp-card" style="${a.severity==='High'?'border-color:var(--critical)':''}">
+        <div class="amp-icon" style="${a.severity==='High'?'background:var(--critical-soft);color:var(--critical)':'background:var(--warning-soft);color:var(--warning)'}">${a.severity==='High'?'🔴':'🟠'}</div>
+        <div class="amp-body">
+          <div class="amp-title">${a.type==='manager'?'Manager':'HRBP'}: ${esc(a.targetName)}</div>
+          <div class="amp-desc">${esc(a.text)}</div>
+          <div class="amp-meta">
+            <span class="amp-badge" style="${a.severity==='High'?'background:var(--critical-soft);color:var(--critical)':''}">${esc(a.severity)} priority</span>
+            <button class="btn" style="margin-left:auto" data-gen-completion-alert="${i}">✉️ Generate email alert</button>
+          </div>
+          ${completionDrafts[i]?`<div class="draft-msg" style="margin-top:10px">
+            <div class="draft-msg-head"><span>Email → ${esc(completionDrafts[i].to||a.targetName)}</span><button class="btn" data-copy-completion-alert="${i}">Copy</button></div>
+            <div class="draft-subject">${esc(completionDrafts[i].subject||'')}</div>
+            <pre class="draft-body">${esc(completionDrafts[i].body||'')}</pre>
+          </div>`:''}
+        </div>
+      </div>`).join(''):'<div class="empty-note">Everyone with tasks assigned is on track — no non-completion alerts right now.</div>'}
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Amplifier completion by HRBP</h3><span class="hint">Most recent run this session, per HRBP</span></div>
+    <div class="table-wrap"><table><thead><tr><th>HRBP</th><th>Client groups</th><th>Last run</th><th>Tasks assigned</th><th>Completed</th><th>Completion</th></tr></thead>
+      <tbody>${hrbpRows.map(r=>`<tr>
+        <td class="name">${esc(r.hrbp.name)}</td>
+        <td>${r.hrbp.depts.map(d=>esc(DEPTS.find(x=>x.id===d).name)).join(', ')}</td>
+        <td class="subtle">${r.run?esc(r.run.generatedAt):'Not run yet'}</td>
+        <td class="tabular">${r.total}</td>
+        <td class="tabular">${r.done}</td>
+        <td>${r.total?barCell(r.pct,100,r.pct===100?'var(--good)':'var(--accent)'):'<span class="subtle">—</span>'}</td>
+      </tr>`).join('')}</tbody></table></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Manager nudge completion — company-wide</h3><span class="hint">Rolled up across every HRBP's current Amplifier run</span></div>
+    ${byManager.length?`<div class="table-wrap"><table><thead><tr><th>Manager</th><th>Dept</th><th>Tasks assigned</th><th>Completed</th><th>Completion</th></tr></thead>
+      <tbody>${byManager.map(m=>{
+        const mgrObj=m.managerId?empById[m.managerId]:null;
+        return `<tr>
+        <td class="name">${m.managerId?mgrLink(m.managerId,m.managerName):esc(m.managerName)}</td>
+        <td>${mgrObj?deptLinkFn(mgrObj.deptId,DEPTS.find(d=>d.id===mgrObj.deptId).name):'<span class="subtle">—</span>'}</td>
+        <td class="tabular">${m.total}</td>
+        <td class="tabular">${m.done}</td>
+        <td>${barCell(m.total?round1(m.done/m.total*100):0,100,m.done===m.total?'var(--good)':(m.done===0?'var(--critical)':'var(--accent)'))}</td>
+      </tr>`;}).join('')}</tbody></table></div>`:'<div class="empty-note">No Amplifier runs yet this session — ask HRBPs to run their Automation Agent to populate this report.</div>'}
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Employee relations SOP completion</h3><span class="hint">${erCompletionPct}% of all tracked milestones complete, company-wide</span></div>
+    <div class="table-wrap"><table><thead><tr><th>Case</th><th>Owner (HRBP)</th><th>Theme</th><th>SLA status</th><th>Milestones complete</th></tr></thead>
+      <tbody>${ER_CASES.slice().sort((a,b)=>erCaseCompletionPct(a)-erCaseCompletionPct(b)).map(c=>{
+        const owner=HRBPS.find(h=>h.id===c.ownerId);
+        const done=erCaseDoneCount(c), total=c.sopMilestones.length;
+        return `<tr data-case="${c.id}"><td class="name">${caseLink(c.id,c.id)}</td><td>${owner?esc(owner.name):'—'}</td><td><span class="pill neutral">${esc(c.theme)}</span></td>
+        <td>${c.status==='Breached'?'<span class="pill critical"><span class="pdot"></span>Breached</span>':c.status==='At risk'?'<span class="pill warning"><span class="pdot"></span>At risk</span>':c.status==='Closed'?'<span class="pill neutral">Closed</span>':'<span class="pill good"><span class="pdot"></span>On track</span>'}</td>
+        <td>${barCell(done,total,done===total?'var(--good)':'var(--accent)')}</td></tr>`;}).join('')}</tbody></table></div>
+  </div>`;
+}
+SECTION_RENDERERS['people:completion']=completionTrackingSection;
 
 /* ---------- SHARED: Org Diagnostics (bottleneck-hypothesis agent) ---------- */
 function orgDiagScope(){
@@ -2499,14 +2883,59 @@ function renderOrgDiagRun(run){
       </div>
     </div>`).join('') + `<p class="hint">Illustrative prototype output. All calculations are aggregate proxies for this workspace — a human validates causes and owns any resulting decision.</p>`;
 }
+/* Deterministic fallback/base for the bottleneck diagnostic agent — grounded in this workspace's
+   own structural signals, so it never comes back blank when the AI capability isn't available. */
+function buildLocalOrgDiagnostic(){
+  const mgrs=orgDiagScope();
+  const byWorkload=mgrs.slice().sort((a,b)=>b.workloadPressureProxy-a.workloadPressureProxy);
+  const bySpan=mgrs.slice().sort((a,b)=>b.spanOfControl-a.spanOfControl);
+  const byLatency=mgrs.slice().sort((a,b)=>b.decisionLatencyProxy-a.decisionLatencyProxy);
+  const hyps=[];
+  if(byWorkload.length && byWorkload[0].workloadPressureProxy>=ORG_THRESHOLDS.workload){
+    const m=byWorkload[0];
+    hyps.push({title:`Workload pressure is concentrated under ${m.name.split(' ')[0]}`,
+      evidence:`${m.name} (${DEPTS.find(d=>d.id===m.deptId).name}) shows a workload pressure proxy of ${m.workloadPressureProxy}/100, above this workspace's ${ORG_THRESHOLDS.workload} threshold, with a span of ${m.spanOfControl} direct reports.`,
+      confidence:m.workloadPressureProxy>=ORG_THRESHOLDS.workload+15?'High':'Medium',
+      experiment:`Shadow ${m.name.split(' ')[0]}'s week and redistribute 1-2 direct reports or recurring approvals to a peer manager for 30 days.`,
+      owner:m.name, successMeasure:'Workload pressure proxy drops below threshold within one review cycle.'});
+  }
+  if(bySpan.length && bySpan[0].spanOfControl>ORG_THRESHOLDS.span){
+    const m=bySpan[0];
+    hyps.push({title:`Span of control is stretched under ${m.name.split(' ')[0]}`,
+      evidence:`${m.name} manages ${m.spanOfControl} direct reports, above the internal threshold of ${ORG_THRESHOLDS.span} (company median is ${companyMedianSpan}).`,
+      confidence:m.spanOfControl>=ORG_THRESHOLDS.span+4?'High':'Medium',
+      experiment:`Promote or hire a team lead to absorb 2-3 reports and pilot for one quarter.`,
+      owner:m.name, successMeasure:'Span drops to within 2 of the company median without a drop in team engagement.'});
+  }
+  if(byLatency.length && byLatency[0].decisionLatencyProxy>=ORG_THRESHOLDS.latency){
+    const m=byLatency[0];
+    hyps.push({title:`Decision latency is elevated under ${m.name.split(' ')[0]}`,
+      evidence:`${m.name}'s decision latency proxy is ${m.decisionLatencyProxy}/100, above the ${ORG_THRESHOLDS.latency} threshold — a possible approval-bottleneck signal.`,
+      confidence:'Medium',
+      experiment:`Delegate one recurring approval category to a senior IC or peer manager for 30 days and track cycle time.`,
+      owner:m.name, successMeasure:'Decision latency proxy drops below threshold within 30 days.'});
+  }
+  if(!hyps.length){
+    const m=byWorkload[0]||bySpan[0]||byLatency[0];
+    if(m){
+      hyps.push({title:'No manager exceeds an internal threshold this cycle',
+        evidence:`Highest workload pressure in scope is ${m.name} at ${m.workloadPressureProxy}/100 (threshold ${ORG_THRESHOLDS.workload}) — comfortably within range.`,
+        confidence:'Low',
+        experiment:`Re-run this diagnostic next pulse cycle; worth a light-touch check-in with ${m.name.split(' ')[0]} in the meantime.`,
+        owner:m.name, successMeasure:'Structural signals remain within threshold at next review.'});
+    }
+  }
+  return {hypotheses:hyps.slice(0,3)};
+}
 async function runOrgDiagnostic(){
   if(state.orgDiagBusy) return;
   const runKey=state.role+':'+(state.role==='hrbp'?currentHrbp().id:'company');
   state.orgDiagBusy=true; renderAll();
+  const local=buildLocalOrgDiagnostic();
   try{
     const sample=await claude.use('sample');
     if(!sample){
-      state.orgDiagRuns[runKey]={generatedAt:new Date().toLocaleString(), hypotheses:[{title:'AI assistant isn’t available in this preview context.',evidence:'',confidence:'Low',experiment:'',owner:'',successMeasure:''}]};
+      state.orgDiagRuns[runKey]={...local, generatedAt:new Date().toLocaleString()};
       return;
     }
     const sys=ORG_ANALYST_SYSTEM_PROMPT+`\n\nCurrent scope: ${scopeLabel()}. Use the get_org_diagnostics and get_top_attrition_risks tools to pull real figures for this scope before writing anything — never invent numbers. All data is simulated demo data, not a real company.\n\n`+
@@ -2514,9 +2943,9 @@ async function runOrgDiagnostic(){
       `{"hypotheses":[{"title":string,"evidence":string,"confidence":"High"|"Medium"|"Low","experiment":string,"owner":string,"successMeasure":string}]} // 2-3 hypotheses, ranked by impact × evidence strength × reversibility, most impactful first.\n\n`+
       `Return ONLY the JSON object.`;
     const result=await sample.json(sys,{tools:AI_TOOLS, modelTier:'default'});
-    state.orgDiagRuns[runKey]={...result, generatedAt:new Date().toLocaleString()};
+    state.orgDiagRuns[runKey]={...local, ...result, generatedAt:new Date().toLocaleString()};
   }catch(err){
-    state.orgDiagRuns[runKey]={generatedAt:new Date().toLocaleString(), hypotheses:[{title:'The diagnostic run failed.',evidence:(err&&err.message)?err.message:'Unknown error.',confidence:'Low',experiment:'',owner:'',successMeasure:''}]};
+    state.orgDiagRuns[runKey]={...local, generatedAt:new Date().toLocaleString()};
   }finally{
     state.orgDiagBusy=false; renderAll();
   }
@@ -2695,6 +3124,55 @@ async function generateAlertEmail(idx){
 }
 SECTION_RENDERERS['hrbp:alerts']=alertCenterSection;
 SECTION_RENDERERS['people:alerts']=alertCenterSection;
+
+/* ---------- PEOPLE TEAM: Completion Tracking — non-completion alerts ----------
+   Scans the same Amplifier task + ER milestone data behind the completion report for
+   managers/HRBPs who are behind, and can draft an automated nudge email for each. */
+function detectCompletionAlerts(){
+  const alerts=[];
+  const hrbpRows=HRBPS.map(h=>({h, run:state.agentRuns[h.id]}));
+  const allTasks=hrbpRows.flatMap(r=>computeAgentTasks(r.run));
+  const byManager=agentCompletionByManager(allTasks);
+  byManager.filter(m=>m.total>0 && m.done===0).forEach(m=>{
+    alerts.push({type:'manager', severity:'High', targetName:m.managerName, managerId:m.managerId,
+      text:`${m.managerName} has ${m.total} automation-queue task${m.total===1?'':'s'} assigned with zero marked complete this cycle.`});
+  });
+  hrbpRows.forEach(({h,run})=>{
+    if(!run){
+      alerts.push({type:'hrbp', severity:'Medium', targetName:h.name, hrbpId:h.id,
+        text:`${h.name} has not run the Automation Agent / Amplifier yet this session — no completion data for ${h.depts.map(d=>DEPTS.find(x=>x.id===d).name).join(', ')}.`});
+      return;
+    }
+    const tasks=computeAgentTasks(run);
+    const done=tasks.filter(t=>state.agentTaskDone[t.id]).length;
+    if(tasks.length && done/tasks.length<0.5){
+      alerts.push({type:'hrbp', severity:'Medium', targetName:h.name, hrbpId:h.id,
+        text:`${h.name}'s Amplifier queue is only ${round1(done/tasks.length*100)}% complete (${done} of ${tasks.length} tasks) as of ${run.generatedAt}.`});
+    }
+  });
+  const order={High:0,Medium:1,Low:2};
+  return alerts.sort((a,b)=>order[a.severity]-order[b.severity]);
+}
+async function generateCompletionAlertEmail(idx){
+  const alerts=detectCompletionAlerts();
+  const a=alerts[idx]; if(!a) return;
+  const fallback = a.type==='manager'
+    ? {to:a.targetName, subject:'Reminder: Amplifier tasks awaiting completion',
+        body:`Hi ${a.targetName.split(' ')[0]} — ${a.text} Please review and mark these complete in Tap In, or flag if any need reassignment.\n\nThis is an automated, illustrative nudge from simulated workspace data — please validate before acting.`}
+    : {to:a.targetName, subject:'Amplifier completion reminder',
+        body:`Hi ${a.targetName.split(' ')[0]} — ${a.text} A quick agent run (or a pass through the automation queue) will keep client-group nudges on track.\n\nThis is an automated, illustrative nudge from simulated workspace data — please validate before acting.`};
+  try{
+    const sample=await claude.use('sample');
+    if(!sample){ state.completionAlertDrafts[idx]=fallback; renderAll(); return; }
+    const sys=`You are Tap In's completion-nudge assistant. Write a short, professional, encouraging-but-direct email ${a.type==='manager'?'to a manager about their own incomplete automation-queue tasks':'to an HR Business Partner about their incomplete Amplifier queue'}: "${a.text}" `+
+      `Return ONLY a JSON object: {"to":string,"subject":string,"body":string}. Keep the body under 100 words, factual, and end with a clear next step — never invent a reason for the delay.`;
+    const result=await sample.json(sys,{modelTier:'quick'});
+    state.completionAlertDrafts[idx]=result;
+  }catch(err){
+    state.completionAlertDrafts[idx]=fallback;
+  }
+  renderAll();
+}
 
 /* ---------- PEOPLE TEAM: Integrations ---------- */
 const INTEGRATIONS=[
@@ -2966,6 +3444,14 @@ function wireSectionInteractions(){
       try{ await navigator.clipboard.writeText(text); const old=b.textContent; b.textContent='Copied'; setTimeout(()=>{b.textContent=old;},1400);}catch(e){}
     }));
   }
+  if(key==='people:completion'){
+    document.querySelectorAll('[data-gen-completion-alert]').forEach(b=>b.addEventListener('click',()=>{ b.disabled=true; b.textContent='Drafting…'; generateCompletionAlertEmail(+b.dataset.genCompletionAlert); }));
+    document.querySelectorAll('[data-copy-completion-alert]').forEach(b=>b.addEventListener('click',async()=>{
+      const d=(state.completionAlertDrafts||{})[+b.dataset.copyCompletionAlert]; if(!d) return;
+      const text=(d.subject?d.subject+'\n\n':'')+(d.body||'');
+      try{ await navigator.clipboard.writeText(text); const old=b.textContent; b.textContent='Copied'; setTimeout(()=>{b.textContent=old;},1400);}catch(e){}
+    }));
+  }
   if(key==='people:orgchart'){
     document.getElementById('orgchart-metric').addEventListener('change',e=>{state.orgchartMetric=e.target.value; renderAll();});
   }
@@ -3076,8 +3562,8 @@ function renderSuggestChips(){
   if(state.assistMode==='policy'){
     chips=['Do we already have a stay-interview guide?','What\'s our remote work policy?','Is there an SOP for PIPs?','What\'s our comp philosophy on pay equity?'];
   } else if(state.role==='manager') chips=['Who on my team is highest attrition risk?','Summarize my team\'s engagement trend','What should I prioritize this week?'];
-  else if(state.role==='hrbp') chips=['Which manager needs coaching most urgently?','Compare my client groups\' benchmarks','Draft talking points for my exec sync'];
-  else chips=['Which department has the highest attrition risk?','Summarize company-wide performance distribution','What should leadership focus on this quarter?'];
+  else if(state.role==='hrbp') chips=['Which manager needs coaching most urgently?','Compare my client groups\' benchmarks','Are we understaffed anywhere in my client groups?','Who\'s ready for a leadership stretch assignment?','Is any manager\'s rating out of calibration?','What are the recurring ER themes in my client groups?'];
+  else chips=['Which department has the highest attrition risk?','Summarize company-wide performance distribution','Where are we over or under headcount target?','Who are our top succession-ready leaders?','Any calibration outliers across departments?','What should leadership communicate about this quarter?'];
   box.innerHTML=chips.map(c=>`<button class="chip-btn" type="button">${esc(c)}</button>`).join('');
   box.querySelectorAll('.chip-btn').forEach(b=>b.addEventListener('click',()=>{document.getElementById('assist-text').value=b.textContent; submitAssistant();}));
 }
@@ -3092,7 +3578,7 @@ function setAssistMode(mode){
   if(!assistMsgsEl().childElementCount){
     appendMsg('bot', mode==='policy'
       ? 'Hi — I search Tap In\'s internal policy, SOP and intranet library. Ask me if a resource already exists before you draft something new.'
-      : `Hi — I'm your Tap In data analyst. I can see the data for your current view (${scopeLabel()}). Ask me about risk, performance, or coaching, or try a suggestion below.`);
+      : `Hi — I'm your Tap In data analyst. I can see the data for your current view (${scopeLabel()}). Ask me about attrition risk, performance, coaching, headcount & scenario planning, leadership development, calibration, change management, or employee relations trends — or try a suggestion below.`);
   }
 }
 
@@ -3205,6 +3691,44 @@ const AI_TOOLS=[
       const contracts=STRATEGIC_CONTRACTS.map(c=>({id:c.id,name:c.name,cost:contractTalentCost(c),value:c.value,roi:contractROI(c),status:c.status,targetDate:c.targetDate}));
       return {totalAnnualTalentCost:TOTAL_ANNUAL_PAYROLL, contracts};
     }},
+  {name:'get_headcount_plan', description:'Get headcount-vs-target and open requisition detail for every department in the current viewer\'s scope — for organizational planning and headcount modeling.',
+    inputSchema:{type:'object',properties:{}},
+    execute:async()=>{
+      const scope = state.role==='people'? deptAgg.map(d=>d.id) : hrbpDeptsOrManagerDept();
+      return {
+        departments: deptAgg.filter(d=>scope.includes(d.id)).map(d=>({name:d.name,current:d.headcount,target:d.target,gap:d.target-d.headcount})),
+        openRequisitions: reqsInScope(scope).map(r=>({id:r.id,title:r.title,department:DEPTS.find(x=>x.id===r.deptId).name,level:r.level,daysOpen:r.daysOpen,benchmarkDays:r.benchmark,stage:r.stage,candidatesInPipeline:r.candidatesInPipeline})),
+      };
+    }},
+  {name:'get_leadership_development_signals', description:'Get leadership-development signals within scope: new (tenure under 7 months) managers, high-potential individual contributors, and succession-readiness gaps — for executive coaching and leadership development.',
+    inputSchema:{type:'object',properties:{}},
+    execute:async()=>{
+      const mgrs=scopedManagerPool();
+      const staff=scopedStaff();
+      return {
+        newManagers: mgrs.filter(m=>m.tenureMonths<7).map(m=>({name:m.name,department:DEPTS.find(d=>d.id===m.deptId).name,tenureMonths:m.tenureMonths,teamSize:managerAgg(m).headcount})),
+        highPotential: staff.filter(e=>!e.isManager&&!e.isDirector&&e.potential>=80).sort((a,b)=>b.potential-a.potential).slice(0,8).map(e=>({name:e.name,title:e.title,department:DEPTS.find(d=>d.id===e.deptId).name,potential:e.potential})),
+        successionGaps: mgrs.filter(m=>!successionCandidates(m).some(c=>c.readiness!=='Development needed')).map(m=>({manager:m.name,department:DEPTS.find(d=>d.id===m.deptId).name})),
+      };
+    }},
+  {name:'get_performance_calibration_signals', description:'Get manager-level average performance and company-wide rating-band distribution within scope — to check for calibration drift, rating inflation, or manager-to-manager rating spread.',
+    inputSchema:{type:'object',properties:{}},
+    execute:async()=>{
+      const mgrs=scopedManagerPool().map(m=>({m,agg:managerAgg(m)})).filter(x=>x.agg.headcount>=3);
+      const staff=scopedStaff();
+      const byBand={}; staff.forEach(e=>{byBand[e.perfBand]=(byBand[e.perfBand]||0)+1;});
+      return {
+        managerAvgPerformance: mgrs.map(x=>({manager:x.m.name,department:DEPTS.find(d=>d.id===x.m.deptId).name,teamSize:x.agg.headcount,avgPerformance:x.agg.avgPerf})),
+        ratingBandDistribution: Object.entries(byBand).map(([band,count])=>({band,count,pct:staff.length?round1(count/staff.length*100):0})),
+        companyAvgPerformance: companyAvgPerf,
+      };
+    }},
+  {name:'get_recent_alerts', description:'Get recently detected attrition/engagement spikes and ER case-volume alerts within scope — for change-management and internal-communication planning.',
+    inputSchema:{type:'object',properties:{}},
+    execute:async()=>{
+      const scope = state.role==='people'? DEPTS.map(d=>d.id) : hrbpDeptsOrManagerDept();
+      return detectSpikes(scope);
+    }},
 ];
 const POLICY_TOOLS=[
   {name:'search_policy_library', description:'Search internal company policies, SOPs, and intranet resources by keyword. Returns matching document titles, categories, and summaries.',
@@ -3261,7 +3785,7 @@ function openAssistant(){
   if(!assistMsgsEl().childElementCount){
     appendMsg('bot', state.assistMode==='policy'
       ? 'Hi — I search Tap In\'s internal policy, SOP and intranet library. Ask me if a resource already exists before you draft something new.'
-      : `Hi — I'm your Tap In data analyst. I can see the data for your current view (${scopeLabel()}). Ask me about risk, performance, or coaching, or try a suggestion below.`);
+      : `Hi — I'm your Tap In data analyst. I can see the data for your current view (${scopeLabel()}). Ask me about attrition risk, performance, coaching, headcount & scenario planning, leadership development, calibration, change management, or employee relations trends — or try a suggestion below.`);
   }
   document.getElementById('assist-text').focus();
 }
@@ -3278,6 +3802,111 @@ function appendMsg(role,text,cls){
   box.scrollTop=box.scrollHeight;
   return div;
 }
+/* Deterministic fallback for the Ask Tap In assistant — a lightweight keyword router over this
+   workspace's own real, simulated data, so a question always gets a grounded answer even when
+   the AI capability isn't available (e.g. viewed outside the Claude Artifact host) or a call fails. */
+function localAssistantAnswer(mode,text){
+  if(mode==='policy'){
+    const hits=searchPolicyLibrary(text);
+    if(!hits.length) return `No exact match in the policy library for "${text}". Try "PTO", "remote work", "PIP", "leveling", "exit interview", or "compensation philosophy".`;
+    return hits.slice(0,3).map(h=>`${h.title} (${h.category}): ${h.summary}`).join('\n\n');
+  }
+  const q=(text||'').toLowerCase();
+  const staff=scopedStaff();
+  const mgrs=scopedManagerPool();
+  const scope=scopeLabel();
+  if(!staff.length) return `No people data in scope for ${scope} right now.`;
+
+  if(/attrition|risk|flight|leav(e|ing)|quit/.test(q)){
+    const top=staff.slice().sort((a,b)=>b.attritionRisk-a.attritionRisk).slice(0,3);
+    return `Highest attrition risk in ${scope}:\n`+top.map(e=>`• ${e.name} (${e.title}) — risk ${e.attritionRisk}/100, engagement ${e.engagement}/100, band ${e.riskBand}`).join('\n');
+  }
+  if(/coach/.test(q)){
+    const c=coachingSuggestions(hrbpDeptsOrManagerDept());
+    if(!c.length) return `No coaching flags in ${scope} right now.`;
+    return `Top coaching priority: ${c[0].mgr.name} — ${c[0].type} (${c[0].priority} priority). ${c[0].text}`;
+  }
+  if(/scenario|what.?if|modeling|projected/.test(q)){
+    const depts=hrbpDeptsOrManagerDept();
+    const avgSalary=staff.length?Math.round(avg(staff.map(e=>e.baseSalary))):0;
+    const atRiskN=staff.filter(e=>e.riskBand!=='Low').length;
+    const currentAttrition=round1(avg(depts.map(id=>deptAgg.find(d=>d.id===id).attritionRate)))||0;
+    const retained=round1(staff.length*currentAttrition*0.15/100);
+    const savings=Math.round(retained*avgSalary*0.5);
+    return `Modeled scenario for ${scope}: a 15% lift in retention actions for the ${atRiskN} at-risk report${atRiskN===1?'':'s'} projects ~${retained} avoided departure${retained===1?'':'s'} and ~$${savings.toLocaleString()} in avoided replacement cost. Open the What-If Scenario Planner to adjust assumptions.`;
+  }
+  if(/understaff|overstaff|headcount target|open req|requisition|backfill|hiring plan/.test(q)){
+    const depts=hrbpDeptsOrManagerDept();
+    const reqs=reqsInScope(depts);
+    const gaps=depts.map(id=>{const d=DEPTS.find(x=>x.id===id); return {d,gap:d.target-deptAllStaff(id).length};}).filter(x=>x.gap!==0).sort((a,b)=>Math.abs(b.gap)-Math.abs(a.gap));
+    if(!gaps.length && !reqs.length) return `${scope} is at headcount target with no open requisitions.`;
+    const parts=[];
+    if(gaps.length) parts.push(`${gaps[0].d.name} is ${gaps[0].gap>0?`${gaps[0].gap} under`:`${Math.abs(gaps[0].gap)} over`} its ${gaps[0].d.target}-person target`);
+    if(reqs.length) parts.push(`${reqs.length} open req${reqs.length===1?'':'s'} in scope, ${reqs.filter(r=>r.daysOpen>r.benchmark).length} past their time-to-fill benchmark`);
+    return parts.join('. ')+'.';
+  }
+  if(/leadership|succession|high.?potential|stretch assignment|new manager|development plan/.test(q)){
+    const newMgrs=mgrs.filter(m=>m.tenureMonths<7);
+    const highPot=staff.filter(e=>!e.isManager&&!e.isDirector&&e.potential>=80).sort((a,b)=>b.potential-a.potential);
+    const parts=[];
+    if(highPot.length) parts.push(`Top stretch candidate: ${highPot[0].name} (potential ${highPot[0].potential}/100, ${highPot[0].title})`);
+    if(newMgrs.length) parts.push(`${newMgrs.length} new manager${newMgrs.length===1?'':'s'} under 7 months tenure worth a coaching cohort`);
+    if(!parts.length) return `No urgent leadership-development flags in ${scope} this cycle.`;
+    return parts.join('. ')+'.';
+  }
+  if(/calibrat|rating (spread|inflation|drift)|inflat/.test(q)){
+    const mgrPerfs=mgrs.map(m=>({m,agg:managerAgg(m)})).filter(x=>x.agg.headcount>=3);
+    if(mgrPerfs.length<2) return `Not enough managers with 3+ reports in ${scope} to check calibration spread.`;
+    const sorted=mgrPerfs.slice().sort((a,b)=>b.agg.avgPerf-a.agg.avgPerf);
+    const high=sorted[0], low=sorted[sorted.length-1];
+    const spread=round1(high.agg.avgPerf-low.agg.avgPerf);
+    return `${high.m.name}'s team averages ${high.agg.avgPerf}/5.0 vs. ${low.m.name}'s ${low.agg.avgPerf}/5.0 — a ${spread}-pt spread. ${spread>=0.6?'Worth a calibration session to confirm this reflects real performance, not rating-anchor drift.':'Within a normal range.'}`;
+  }
+  if(/change management|communicat|rollout|announce|internal comms/.test(q)){
+    const depts=hrbpDeptsOrManagerDept();
+    const spikes=detectSpikes(depts);
+    if(!spikes.length) return `No communication-worthy spikes in ${scope} this cycle — steady-state cadence is fine.`;
+    return `${spikes[0].text} Recommend a proactive team communication before the next pulse survey.`;
+  }
+  if(/employee relations|\ber case|grievance|harassment|recurring theme/.test(q)){
+    const depts=hrbpDeptsOrManagerDept();
+    const cases=ER_CASES.filter(c=>depts.includes(c.deptId));
+    if(!cases.length) return `No ER cases in ${scope}.`;
+    const open=cases.filter(c=>c.stage!=='Closed');
+    const byTheme={}; cases.forEach(c=>{byTheme[c.theme]=(byTheme[c.theme]||0)+1;});
+    const topTheme=Object.entries(byTheme).sort((a,b)=>b[1]-a[1])[0];
+    return `${open.length} open case${open.length===1?'':'s'} in ${scope}. Most recurring theme: "${topTheme[0]}" (${topTheme[1]} case${topTheme[1]===1?'':'s'}). See ER Tracker for detail.`;
+  }
+  if(/benchmark|compare|rank/.test(q)){
+    if(!mgrs.length) return `No managers in scope to benchmark.`;
+    const ranked=mgrs.slice().sort((a,b)=>managerAgg(b).avgPerf-managerAgg(a).avgPerf);
+    const top=ranked[0], bottom=ranked[ranked.length-1];
+    return `In ${scope}: ${top.name}'s team leads on performance (${managerAgg(top).avgPerf}/5.0), while ${bottom.name}'s team is lowest (${managerAgg(bottom).avgPerf}/5.0). Company average is ${companyAvgPerf}/5.0.`;
+  }
+  if(/engagement|pulse|sentiment/.test(q)){
+    const avgEng=Math.round(avg(staff.map(e=>e.engagement)));
+    return `Average engagement in ${scope} is ${avgEng}/100 vs. the company average of ${companyAvgEngagement}/100. ${avgEng<companyAvgEngagement?'Worth a listening session to find the driver.':'Tracking at or above company average.'}`;
+  }
+  if(/headcount|team size|how many/.test(q)){
+    return `${scope} covers ${staff.length} people${mgrs.length?` across ${mgrs.length} manager${mgrs.length===1?'':'s'}`:''}.`;
+  }
+  if(/workload|span|latency|bottleneck|structural/.test(q)){
+    if(!mgrs.length || mgrs[0].workloadPressureProxy==null) return `Open Org Diagnostics for the full structural read on ${scope}.`;
+    const busiest=mgrs.slice().sort((a,b)=>(b.workloadPressureProxy||0)-(a.workloadPressureProxy||0))[0];
+    return `${busiest.name} shows the highest workload pressure proxy in scope (${busiest.workloadPressureProxy}/100, span ${busiest.spanOfControl}). See Org Diagnostics for the full structural read.`;
+  }
+  if(/exit|left|departure|offboard/.test(q)){
+    const n=EXIT_RECORDS.length;
+    return n?`${n} exits recorded in the trailing period company-wide, avg exit sentiment ${Math.round(avg(EXIT_RECORDS.map(r=>r.sentiment)))}/100. See Exit Interviews for the full trend.`:'No exit records in this workspace.';
+  }
+  if(/comp|salary|pay|compa.?ratio/.test(q)){
+    return `Comp & Benefits has replacement-cost and pay-positioning detail for ${scope} — open that section for compa-ratio and time-to-fill figures.`;
+  }
+  const avgPerf=round1(avg(staff.map(e=>e.perf)));
+  const avgEng=Math.round(avg(staff.map(e=>e.engagement)));
+  const highRisk=staff.filter(e=>e.riskBand==='High').length;
+  return `Quick snapshot for ${scope}: avg performance ${avgPerf}/5.0, avg engagement ${avgEng}/100, ${highRisk} high-risk report${highRisk===1?'':'s'}. Ask about "attrition risk", "coaching", "benchmark", "engagement", "headcount", "leadership development", "calibration", "change management", or "employee relations" for more detail.`;
+}
 async function submitAssistant(){
   if(assistBusy) return;
   const input=document.getElementById('assist-text');
@@ -3292,12 +3921,13 @@ async function submitAssistant(){
   try{
     const sample=await claude.use('sample');
     if(!sample){
-      thinking.remove();
-      appendMsg('sys','The AI assistant isn\'t available in this preview context.');
+      thinking.classList.remove('thinking');
+      thinking.textContent=localAssistantAnswer(mode,text);
       return;
     }
     const sys = mode==='policy' ? POLICY_SYSTEM_PROMPT : ORG_ANALYST_SYSTEM_PROMPT+`\n\n`+
       `The current viewer's persona is: ${scopeLabel()}. Only discuss data within their scope — never claim visibility into data outside it. `+
+      `Beyond bottleneck diagnostics, you can also go deep on: scenario planning, organizational planning & headcount modeling, executive coaching & leadership development, performance management & calibration logic, change management & internal communications, and employee relations trend analysis — use get_headcount_plan, get_leadership_development_signals, get_performance_calibration_signals, get_recent_alerts, get_er_tracker_summary, and get_coaching_suggestions as relevant to the question. `+
       `Use the provided tools to look up real figures before answering; never invent numbers. Be concise (2-6 sentences or a short list) unless the question needs a ranked list of hypotheses. `+
       `All data is simulated demo data, not a real company — you can say so if asked.`;
     const res=await sample([{role:'user',content:sys+'\n\nQuestion: '+text}],{
@@ -3306,10 +3936,10 @@ async function submitAssistant(){
       onText:({text:t})=>{ thinking.classList.remove('thinking'); thinking.textContent=t; assistMsgsEl().scrollTop=9e9; }
     });
     thinking.classList.remove('thinking');
-    thinking.textContent=res.text||'(no response)';
+    thinking.textContent=res.text||localAssistantAnswer(mode,text);
   }catch(err){
     thinking.classList.remove('thinking');
-    thinking.textContent='Something went wrong reaching the assistant: '+(err && err.message?err.message:'unknown error');
+    thinking.textContent=localAssistantAnswer(mode,text);
   }finally{
     assistBusy=false;
     document.querySelector('#assist-form button').disabled=false;
